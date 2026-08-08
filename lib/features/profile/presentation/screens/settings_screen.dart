@@ -1,0 +1,383 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneymap/core/constants/color_constants.dart';
+import 'package:moneymap/core/providers/currency_provider.dart';
+import '../../../../core/theme/app_colors_extension.dart';
+import '../../../../core/theme/theme_provider.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _budgetAlerts = true;
+  bool _dailyReminder = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _budgetAlerts = prefs.getBool('budgetAlerts') ?? true;
+      _dailyReminder = prefs.getBool('dailyReminder') ?? false;
+    });
+  }
+
+  Future<void> _saveToggle(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
+
+  String _themeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light Mode';
+      case ThemeMode.dark:
+        return 'Dark Mode';
+      case ThemeMode.system:
+        return 'System Default';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final currencyProvider = Provider.of<CurrencyProvider>(context);
+    final colors = context.colors;
+
+    return Scaffold(
+      backgroundColor: colors.background,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: colors.background,
+        toolbarHeight: 82,
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                Navigator.pop(context);
+              },
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: colors.border,
+                  ),
+                ),
+                child: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 18,
+                  color: colors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Settings",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "App preferences & customisation",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        children: [
+          _buildSectionLabel("Appearance"),
+          _buildSettingsTile(
+            icon: Icons.palette_outlined,
+            title: "App Theme",
+            subtitle: _themeModeLabel(themeProvider.themeMode),
+            onTap: () => _showThemeDialog(themeProvider),
+          ),
+          _buildSettingsTile(
+            icon: Icons.payments_outlined,
+            title: "Global Currency",
+            subtitle: "Current: ${currencyProvider.selectedCurrency} (${currencyProvider.currencySymbol})",
+            onTap: () => _showCurrencyDialog(currencyProvider),
+          ),
+          const SizedBox(height: 24),
+          _buildSectionLabel("Notifications"),
+          _buildSwitchTile(
+            icon: Icons.notifications_none_rounded,
+            title: "Budget Alerts",
+            subtitle: "Notify when limit is exceeded",
+            value: _budgetAlerts,
+            onChanged: (v) {
+              setState(() => _budgetAlerts = v);
+              _saveToggle('budgetAlerts', v);
+            },
+          ),
+          _buildSwitchTile(
+            icon: Icons.access_time_rounded,
+            title: "Daily Reminder",
+            subtitle: "Never miss an entry",
+            value: _dailyReminder,
+            onChanged: (v) {
+              setState(() => _dailyReminder = v);
+              _saveToggle('dailyReminder', v);
+            },
+          ),
+          const SizedBox(height: 24),
+          _buildSectionLabel("Safety & Data"),
+          _buildSettingsTile(
+            icon: Icons.cloud_outlined,
+            title: "Cloud Backup",
+            subtitle: "Secure your data to the cloud",
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Cloud sync started..."),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
+          _buildSettingsTile(
+            icon: Icons.info_outline_rounded,
+            title: "About MoneyMap",
+            subtitle: "Version 1.0.0",
+            onTap: () => _showAboutDialog(),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12, top: 8),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: context.colors.textDisabled,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final colors = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border.withValues(alpha: 0.3)),
+      ),
+      child: ListTile(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 22),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: colors.textPrimary,
+            fontSize: 15,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 12, color: colors.textSecondary),
+        ),
+        trailing: Icon(Icons.chevron_right_rounded, color: colors.textDisabled),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final colors = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border.withValues(alpha: 0.3)),
+      ),
+      child: SwitchListTile(
+        secondary: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 22),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: colors.textPrimary,
+            fontSize: 15,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 12, color: colors.textSecondary),
+        ),
+        value: value,
+        onChanged: (v) {
+          HapticFeedback.selectionClick();
+          onChanged(v);
+        },
+        activeThumbColor: AppColors.primary,
+      ),
+    );
+  }
+
+  void _showThemeDialog(ThemeProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text("Choose Theme", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ThemeMode.values.map((mode) => RadioListTile<ThemeMode>(
+                title: Text(_themeModeLabel(mode), style: TextStyle(color: context.colors.textPrimary)),
+                value: mode,
+                groupValue: provider.themeMode,
+                onChanged: (v) {
+                  provider.setThemeMode(v!);
+                  Navigator.pop(ctx);
+                },
+                activeColor: AppColors.primary,
+              )).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _showCurrencyDialog(CurrencyProvider provider) {
+    final currencies = {
+      'INR': '₹ Indian Rupee',
+      'USD': '\$ US Dollar',
+      'EUR': '€ Euro',
+      'GBP': '£ British Pound',
+      'JPY': '¥ Japanese Yen',
+      'CNY': '¥ Chinese Yuan',
+      'CAD': 'C\$ Canadian Dollar',
+      'AUD': 'A\$ Australian Dollar',
+    };
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text("Select Currency", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: currencies.entries
+                .map((e) => ListTile(
+                      title: Text(e.value, style: TextStyle(color: context.colors.textPrimary)),
+                      trailing: provider.selectedCurrency == e.key
+                          ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
+                          : null,
+                      onTap: () {
+                        provider.setCurrency(e.key);
+                        Navigator.pop(ctx);
+                      },
+                    ))
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: context.colors.surface,
+        title: const Text('About MoneyMap', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.map_rounded, size: 48, color: AppColors.primary),
+            ),
+            const SizedBox(height: 16),
+            Text('MoneyMap', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: context.colors.textPrimary)),
+            const SizedBox(height: 8),
+            Text('Your Personal Finance Guide', style: TextStyle(fontSize: 14, color: context.colors.textSecondary)),
+            const SizedBox(height: 24),
+            const Text('Version 1.0.0', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}

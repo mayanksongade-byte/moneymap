@@ -1,0 +1,73 @@
+name: moneymap
+description: "Navigate Your Finances - Expense Tracker App"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ===== Firebase =====
+  firebase_core: ^3.10.1
+  firebase_auth: ^5.4.4
+  cloud_firestore: ^5.6.2
+  firebase_storage: ^12.4.10
+  google_sign_in: ^6.2.1
+
+  # ===== State Management =====
+  provider: ^6.0.5
+
+  # ===== Navigation =====
+  go_router: ^10.1.0
+
+  # ===== UI & Design =====
+  flutter_svg: ^2.0.9
+  google_fonts: ^6.1.0
+  fl_chart: ^0.65.0
+  flutter_native_splash: ^2.3.8
+  flutter_launcher_icons: ^0.13.1
+
+  # ===== Storage =====
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.2
+
+  # ===== Utilities =====
+  intl: ^0.18.1
+  connectivity_plus: ^5.0.1
+  image_picker: ^1.0.4
+  device_info_plus: ^9.1.1
+  url_launcher: ^6.2.1
+  package_info_plus: ^4.2.0
+  permission_handler: ^11.0.1
+  flutter_local_notifications: ^17.2.3
+
+  # ===== Export =====
+  pdf: ^3.10.4
+  excel: ^4.0.6
+  share_plus: ^12.0.2
+  file_picker: ^8.0.0
+
+  # ===== Architecture =====
+  equatable: ^2.0.5
+  dartz: ^0.10.1
+  get_it: ^7.6.0
+  json_annotation: ^4.8.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.6
+  json_serializable: ^6.7.1
+  mockito: ^5.4.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/images/onbording_illustration/
+    - assets/images/Welcome_illustration/
+    - assets/icons/
