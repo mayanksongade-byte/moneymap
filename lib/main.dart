@@ -6,6 +6,7 @@ import 'core/theme/light_theme.dart';
 import 'core/theme/dark_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/providers/currency_provider.dart';
+import 'core/providers/notification_provider.dart';
 import 'config/routes/app_router.dart';
 import 'core/services/service_locator.dart';
 import 'core/services/notification_service.dart';
@@ -22,7 +23,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 2. Initialize Notification Service
+  // 2. Initialize Notification Service Foundation
   final notificationService = NotificationService();
   await notificationService.init();
   await notificationService.requestPermissions();
@@ -46,6 +47,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()..loadSettings()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {

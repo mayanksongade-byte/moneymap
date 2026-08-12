@@ -1,8 +1,8 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import '../../config/routes/app_router.dart';
-import '../../config/routes/app_routes.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -10,147 +10,160 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
-  
-  bool _sent80Alert = false;
-  bool _sent100Alert = false;
-  int _lastMonth = -1;
+
+  // Stable IDs for reminders (STEP 4)
+  static const int morningReminderId = 1000;
+  static const int eveningReminderId = 1001;
+  static const int _oldDailyReminderId = 999; // Step 3 cleanup
 
   Future<void> init() async {
-    tz.initializeTimeZones();
-    
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    try {
+      tz.initializeTimeZones();
+      
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings initializationSettingsDarwin =
-        DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+      const DarwinInitializationSettings initializationSettingsDarwin =
+          DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
 
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-    );
+      const InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsDarwin,
+      );
 
-    await _notificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse details) {
-        if (details.payload != null && details.payload!.isNotEmpty) {
-          AppRouter.router.push(details.payload!);
-        }
-      },
-    );
+      await _notificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse details) {
+          // Future navigation logic
+        },
+      );
+
+      await _createNotificationChannel();
+      
+      // Clean up Step 3 specific ID if it exists using the stable method
+      await cancelReminder(_oldDailyReminderId);
+      
+    } catch (e) {
+      debugPrint('Notification Service Init Error: $e');
+    }
   }
 
-  Future<void> requestPermissions() async {
+  Future<void> _createNotificationChannel() async {
+    if (!Platform.isAndroid) return;
+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'moneymap_main_channel',
+      'MoneyMap Alerts',
+      description: 'Important financial updates and reminders',
+      importance: Importance.high,
+      enableVibration: true,
+      playSound: true,
+      showBadge: true,
+    );
+
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
+
+  Future<bool> isPermissionGranted() async {
+    if (!Platform.isAndroid) return true;
+    
     final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
         _notificationsPlugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    
-    await androidImplementation?.requestNotificationsPermission();
+            
+    return await androidImplementation?.areNotificationsEnabled() ?? false;
   }
 
-  void checkBudgetAndNotify(double currentExpense, double? limit) {
-    if (limit == null || limit <= 0) return;
-
-    final now = DateTime.now();
-    if (_lastMonth != now.month) {
-      _lastMonth = now.month;
-      _sent80Alert = false;
-      _sent100Alert = false;
-    }
-
-    final percentage = (currentExpense / limit) * 100;
-
-    if (percentage >= 100 && !_sent100Alert) {
-      showInstantNotification(
-        id: 101,
-        title: 'Budget Exceeded! ⚠️ (${percentage.toStringAsFixed(0)}%)',
-        body: 'Spent ₹${currentExpense.toInt()} of ₹${limit.toInt()}. You are over budget!',
-        payload: AppRoutes.budget,
-      );
-      _sent100Alert = true;
-      _sent80Alert = true; 
-    } else if (percentage >= 80 && !_sent80Alert && percentage < 100) {
-      showInstantNotification(
-        id: 100,
-        title: 'Budget Alert 💸 (${percentage.toStringAsFixed(0)}%)',
-        body: 'You have used ${percentage.toStringAsFixed(0)}% of your budget (₹${currentExpense.toInt()}/₹${limit.toInt()}).',
-        payload: AppRoutes.budget,
-      );
-      _sent80Alert = true;
+  Future<void> requestPermissions() async {
+    try {
+      if (Platform.isAndroid) {
+        final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+            _notificationsPlugin.resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
+        
+        await androidImplementation?.requestNotificationsPermission();
+      } else if (Platform.isIOS) {
+        await _notificationsPlugin
+            .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+            ?.requestPermissions(
+              alert: true,
+              badge: true,
+              sound: true,
+            );
+      }
+    } catch (e) {
+      debugPrint('Notification Permission Request Error: $e');
     }
   }
 
-  Future<void> showInstantNotification({
-    required int id,
-    required String title,
-    required String body,
-    String? payload,
-  }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'budget_alerts',
-      'Budget Alerts',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-    );
-
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: DarwinNotificationDetails(),
-    );
-
-    await _notificationsPlugin.show(
-      id, 
-      title, 
-      body, 
-      platformChannelSpecifics,
-      payload: payload ?? AppRoutes.budget,
-    );
-  }
-
+  /// Schedule repeating daily notification at custom time
   Future<void> scheduleDailyReminder({
     required int id,
     required int hour,
     required int minute,
   }) async {
-    await _notificationsPlugin.zonedSchedule(
-      id,
-      'MoneyMap Reminder 💰',
-      'Did you forget to add today\'s expenses? Add them now!',
-      _nextInstanceOfTime(hour, minute),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'daily_reminders',
-          'Daily Reminders',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
+    try {
+      final granted = await isPermissionGranted();
+      if (!granted) return;
+
+      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'moneymap_main_channel',
+        'MoneyMap Alerts',
+        channelDescription: 'Important financial updates and reminders',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+
+      const NotificationDetails platformDetails = NotificationDetails(
+        android: androidDetails,
         iOS: DarwinNotificationDetails(),
-      ),
-      payload: AppRoutes.addTransaction,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+      );
+
+      await _notificationsPlugin.zonedSchedule(
+        id,
+        'MoneyMap Reminder',
+        'Don\'t forget to track today\'s expenses.',
+        _nextInstanceOfTime(hour, minute),
+        platformDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+      
+      debugPrint('Reminder $id scheduled for $hour:$minute');
+    } catch (e) {
+      debugPrint('Error scheduling reminder $id: $e');
+    }
   }
 
-  Future<void> cancelNotification(int id) async {
+  /// Cancel a specific reminder - matches NotificationProvider call
+  Future<void> cancelReminder(int id) async {
     await _notificationsPlugin.cancel(id);
+    debugPrint('Reminder $id cancelled');
   }
 
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
     tz.TZDateTime scheduledDate =
         tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
     return scheduledDate;
+  }
+}
+
+// Global debug print for service layer
+void debugPrint(String message) {
+  if (kDebugMode) {
+    print('[NotificationService] $message');
   }
 }

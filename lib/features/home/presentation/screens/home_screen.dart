@@ -382,7 +382,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(vertical: 4),
             alignment: Alignment.centerLeft,
             child: Text(
-              isPositive ? 'Positive Cash Flow' : 'Negative Cash Flow',
+              isPositive ? 'Positive Money Flow' : 'Negative Money Flow',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,

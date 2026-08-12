@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
-import 'package:moneymap/core/services/notification_service.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/theme/theme_provider.dart';
 
@@ -16,47 +15,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _budgetAlerts = true;
-  bool _dailyReminder = false;
-  final NotificationService _notificationService = NotificationService();
-
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _budgetAlerts = prefs.getBool('budgetAlerts') ?? true;
-      _dailyReminder = prefs.getBool('dailyReminder') ?? false;
-    });
-  }
-
-  Future<void> _handleDailyReminder(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('dailyReminder', value);
-    setState(() => _dailyReminder = value);
-
-    if (value) {
-      // Schedule reminder for 8:00 PM (20:00)
-      await _notificationService.scheduleDailyReminder(
-        id: 100,
-        hour: 20,
-        minute: 0,
-      );
-    } else {
-      await _notificationService.cancelNotification(100);
-    }
-  }
-
-  Future<void> _saveToggle(String key, bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
-    if (key == 'budgetAlerts') {
-      setState(() => _budgetAlerts = value);
-    }
   }
 
   String _themeModeLabel(ThemeMode mode) {
@@ -153,22 +114,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _showCurrencyDialog(currencyProvider),
           ),
           const SizedBox(height: 12),
-          _buildSectionLabel("Notifications"),
-          _buildSwitchTile(
-            icon: Icons.notifications_none_rounded,
-            title: "Budget Alerts",
-            subtitle: "Notify when limit is exceeded",
-            value: _budgetAlerts,
-            onChanged: (v) => _saveToggle('budgetAlerts', v),
-          ),
-          _buildSwitchTile(
-            icon: Icons.access_time_rounded,
-            title: "Daily Reminder",
-            subtitle: "Never miss an entry (8:00 PM)",
-            value: _dailyReminder,
-            onChanged: (v) => _handleDailyReminder(v),
-          ),
-          const SizedBox(height: 12),
           _buildSectionLabel("General"),
           _buildSettingsTile(
             icon: Icons.info_outline_rounded,
@@ -238,56 +183,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(fontSize: 12, color: colors.textSecondary),
         ),
         trailing: Icon(Icons.chevron_right_rounded, color: colors.textDisabled),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      ),
-    );
-  }
-
-  Widget _buildSwitchTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    final colors = context.colors;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.border.withValues(alpha: 0.3)),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: AppColors.primary, size: 22),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: colors.textPrimary,
-            fontSize: 15,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(fontSize: 12, color: colors.textSecondary),
-        ),
-        trailing: Switch(
-          value: value,
-          onChanged: (v) {
-            HapticFeedback.selectionClick();
-            onChanged(v);
-          },
-          activeColor: AppColors.primary,
-        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );

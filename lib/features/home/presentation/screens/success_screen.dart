@@ -29,7 +29,7 @@ class SuccessScreen extends StatelessWidget {
       case 'card':
         return const Icon(Icons.credit_card_rounded, size: 24, color: Colors.grey);
       default:
-        return null;
+        return const Icon(Icons.payments_rounded, size: 24, color: Colors.grey);
     }
   }
 

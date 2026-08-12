@@ -10,7 +10,6 @@ import 'package:moneymap/features/home/presentation/widgets/type_toggle.dart';
 import 'package:moneymap/features/home/presentation/providers/transaction_provider.dart';
 import 'package:moneymap/features/category/presentation/providers/category_provider.dart';
 import 'package:moneymap/features/budget/presentation/providers/budget_provider.dart';
-import 'package:moneymap/core/services/notification_service.dart';
 import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'success_screen.dart';
 
@@ -97,7 +96,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     final provider = Provider.of<TransactionProvider>(context, listen: false);
     final categoryProv = Provider.of<CategoryProvider>(context, listen: false);
-    final budgetProv = Provider.of<BudgetProvider>(context, listen: false);
 
     final categories = categoryProv.byType(_selectedType);
     final category = categories.firstWhere((c) => c.id == _selectedCategoryId);
@@ -125,9 +123,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (mounted) {
       setState(() => _isUploading = false);
       if (success) {
-        if (_selectedType == 'expense' && budgetProv.hasBudget) {
-          NotificationService().checkBudgetAndNotify(provider.monthlyExpense, budgetProv.monthlyLimit);
-        }
         if (widget.transactionToEdit != null) {
           Navigator.pop(context, true);
         } else {
@@ -144,8 +139,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   'paymentMode': transaction.paymentMode,
                   'dateString': DateFormat('dd MMM yyyy').format(transaction.date),
                 },
-                onAddAnother: () => Navigator.pop(context),
-                onGoHome: () => Navigator.pop(context, true),
+                onAddAnother: () => Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddTransactionScreen()),
+                ),
+                onGoHome: () => Navigator.of(context).popUntil((route) => route.isFirst),
               ),
             ),
           );

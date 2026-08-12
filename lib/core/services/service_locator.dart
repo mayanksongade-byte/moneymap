@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'notification_service.dart';
 import '../../features/home/data/services/transaction_service.dart';
 import '../../features/budget/data/services/budget_service.dart';
 import '../../features/category/data/services/category_service.dart';
@@ -8,7 +9,7 @@ import '../../features/category/data/services/category_service.dart';
 final GetIt getIt = GetIt.instance;
 
 Future<void> setupServiceLocator() async {
-  // External - Registering back to prevent "not registered" errors in other files
+  // External
   if (!getIt.isRegistered<FirebaseAuth>()) {
     getIt.registerLazySingleton<FirebaseAuth>(() => FirebaseAuth.instance);
   }
@@ -17,6 +18,10 @@ Future<void> setupServiceLocator() async {
   }
 
   // Services
+  if (!getIt.isRegistered<NotificationService>()) {
+    getIt.registerLazySingleton<NotificationService>(() => NotificationService());
+  }
+
   if (!getIt.isRegistered<TransactionService>()) {
     getIt.registerLazySingleton<TransactionService>(() => TransactionService());
   }

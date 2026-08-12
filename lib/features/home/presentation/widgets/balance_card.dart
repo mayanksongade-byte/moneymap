@@ -90,130 +90,202 @@ class _BalanceCardState extends State<BalanceCard>
   Widget build(BuildContext context) {
     super.build(context);
     final currency = context.watch<CurrencyProvider>();
+    final monthlyChange = widget.income - widget.expense;
+    final isPositiveChange = monthlyChange >= 0;
     
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0A58EE),
-            Color(0xFF009FFD),
-            Color(0xFF2AF598),
-          ],
-          stops: [0.0, 0.6, 1.0],
-        ),
+        color: const Color(0xFF0038A8), // Deep Blue
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0A58EE).withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'TOTAL BALANCE',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            // Background Decorative Circles
+            Positioned(
+              right: -25,
+              top: -25,
+              child: Container(
+                width: 130,
+                height: 130,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.08),
                 ),
-                child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              AnimatedBuilder(
-                animation: _c,
-                builder: (context, _) {
-                  final val = _fromBalance + (widget.balance - _fromBalance) * Curves.easeOutCubic.transform(_c.value);
-                  return Text(
-                    _hideBalance ? '${currency.currencySymbol} ••••••' : currency.format(val, showDecimals: true),
-                    style: const TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: -1.0,
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Total Balance',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white, size: 18),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Balance Row
+                  Row(
+                    children: [
+                      AnimatedBuilder(
+                        animation: _c,
+                        builder: (context, _) {
+                          final val = _fromBalance + (widget.balance - _fromBalance) * Curves.easeOutCubic.transform(_c.value);
+                          final balanceText = _hideBalance 
+                              ? '${currency.currencySymbol} ••••••' 
+                              : currency.format(val, showDecimals: true);
+                          return Text(
+                            balanceText,
+                            style: const TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: _toggle,
+                        child: Icon(
+                          _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                          color: Colors.white.withOpacity(0.6),
+                          size: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 10),
+                  
+                  // Monthly Change Pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  );
-                },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: isPositiveChange ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isPositiveChange ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded, 
+                            color: Colors.white, 
+                            size: 9,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${isPositiveChange ? '+' : ''}${currency.format(monthlyChange)} this month',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Stats Section
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatItem(
+                          'MONEY IN', 
+                          widget.income, 
+                          Icons.arrow_downward_rounded,
+                          const Color(0xFF22C55E),
+                        ),
+                      ),
+                      Container(
+                        height: 32,
+                        width: 1,
+                        color: Colors.white.withOpacity(0.15),
+                      ),
+                      Expanded(
+                        child: _buildStatItem(
+                          'MONEY OUT', 
+                          widget.expense, 
+                          Icons.arrow_upward_rounded,
+                          const Color(0xFFEF4444),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Footer
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded, size: 12, color: Colors.white.withOpacity(0.4)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Updated $_updatedText',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.4),
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: _toggle,
-                icon: Icon(
-                  _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                  color: Colors.white70,
-                  size: 20,
-                ),
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 12),
-                const SizedBox(width: 4),
-                Text(
-                  '+ ${currency.format(widget.income - widget.expense)} this month',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
-          Row(
-            children: [
-              Expanded(child: _buildStatItem('MONEY IN', widget.income, Icons.arrow_downward_rounded)),
-              Container(width: 1, height: 30, color: Colors.white24),
-              Expanded(child: _buildStatItem('MONEY OUT', widget.expense, Icons.arrow_upward_rounded)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              const Icon(Icons.access_time_rounded, size: 14, color: Colors.white60),
-              const SizedBox(width: 6),
-              Text(
-                'Updated $_updatedText',
-                style: const TextStyle(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatItem(String label, double amount, IconData icon) {
+  Widget _buildStatItem(String label, double amount, IconData icon, Color iconColor) {
     final currency = context.watch<CurrencyProvider>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -222,24 +294,33 @@ class _BalanceCardState extends State<BalanceCard>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: label == 'MONEY IN' ? Colors.tealAccent.withValues(alpha: 0.2) : Colors.redAccent.withValues(alpha: 0.2),
+                color: iconColor.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 12, color: label == 'MONEY IN' ? Colors.tealAccent : Colors.redAccent),
+              child: Icon(icon, size: 12, color: iconColor),
             ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
           currency.format(amount, showDecimals: true),
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );
