@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
+import 'package:moneymap/core/services/notification_service.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/theme/theme_provider.dart';
 
@@ -17,6 +18,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _budgetAlerts = true;
   bool _dailyReminder = false;
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
@@ -32,9 +34,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  Future<void> _handleDailyReminder(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dailyReminder', value);
+    setState(() => _dailyReminder = value);
+
+    if (value) {
+      // Schedule reminder for 8:00 PM (20:00)
+      await _notificationService.scheduleDailyReminder(
+        id: 100,
+        hour: 20,
+        minute: 0,
+      );
+    } else {
+      await _notificationService.cancelNotification(100);
+    }
+  }
+
   Future<void> _saveToggle(String key, bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
+    if (key == 'budgetAlerts') {
+      setState(() => _budgetAlerts = value);
+    }
   }
 
   String _themeModeLabel(ThemeMode mode) {
@@ -130,43 +152,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: "Current: ${currencyProvider.selectedCurrency} (${currencyProvider.currencySymbol})",
             onTap: () => _showCurrencyDialog(currencyProvider),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           _buildSectionLabel("Notifications"),
           _buildSwitchTile(
             icon: Icons.notifications_none_rounded,
             title: "Budget Alerts",
             subtitle: "Notify when limit is exceeded",
             value: _budgetAlerts,
-            onChanged: (v) {
-              setState(() => _budgetAlerts = v);
-              _saveToggle('budgetAlerts', v);
-            },
+            onChanged: (v) => _saveToggle('budgetAlerts', v),
           ),
           _buildSwitchTile(
             icon: Icons.access_time_rounded,
             title: "Daily Reminder",
-            subtitle: "Never miss an entry",
+            subtitle: "Never miss an entry (8:00 PM)",
             value: _dailyReminder,
-            onChanged: (v) {
-              setState(() => _dailyReminder = v);
-              _saveToggle('dailyReminder', v);
-            },
+            onChanged: (v) => _handleDailyReminder(v),
           ),
-          const SizedBox(height: 24),
-          _buildSectionLabel("Safety & Data"),
-          _buildSettingsTile(
-            icon: Icons.cloud_outlined,
-            title: "Cloud Backup",
-            subtitle: "Secure your data to the cloud",
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Cloud sync started..."),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          ),
+          const SizedBox(height: 12),
+          _buildSectionLabel("General"),
           _buildSettingsTile(
             icon: Icons.info_outline_rounded,
             title: "About MoneyMap",
@@ -209,6 +212,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         border: Border.all(color: colors.border.withValues(alpha: 0.3)),
       ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         onTap: () {
           HapticFeedback.selectionClick();
           onTap();
@@ -254,8 +258,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: colors.border.withValues(alpha: 0.3)),
       ),
-      child: SwitchListTile(
-        secondary: Container(
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: AppColors.primary.withValues(alpha: 0.08),
@@ -275,12 +280,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle,
           style: TextStyle(fontSize: 12, color: colors.textSecondary),
         ),
-        value: value,
-        onChanged: (v) {
-          HapticFeedback.selectionClick();
-          onChanged(v);
-        },
-        activeThumbColor: AppColors.primary,
+        trailing: Switch(
+          value: value,
+          onChanged: (v) {
+            HapticFeedback.selectionClick();
+            onChanged(v);
+          },
+          activeColor: AppColors.primary,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     );
   }

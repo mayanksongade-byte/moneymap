@@ -24,38 +24,36 @@ class TransactionCard extends StatelessWidget {
     required this.amount,
     required this.type,
     required this.date,
-    required this.icon,
+    required this.icon, 
     this.paymentMode = 'Cash',
     this.onTap,
     this.onDelete,
   });
 
   bool get isIncome => type.toLowerCase() == 'income';
-
   Color get amountColor => isIncome ? AppColors.success : AppColors.error;
+  String get amountPrefix => isIncome ? '+ ' : '- ';
 
-  String get amountPrefix => isIncome ? '+' : '-';
-
-  IconData _getPaymentIcon(String mode) {
+  Map<String, dynamic> _getPaymentDetails(String mode) {
     switch (mode.toLowerCase()) {
       case 'upi':
-        return Icons.qr_code_2_rounded;
+        return {'icon': Icons.qr_code_2_rounded, 'color': Colors.blue};
       case 'card':
-        return Icons.credit_card_rounded;
+        return {'icon': Icons.credit_card_rounded, 'color': Colors.purple};
       case 'bank':
-        return Icons.account_balance_rounded;
-      default:
-        return Icons.payments_rounded;
+        return {'icon': Icons.account_balance_rounded, 'color': Colors.teal};
+      default: // Cash
+        return {'icon': Icons.payments_rounded, 'color': Colors.orange};
     }
   }
 
-  Future<bool> _confirmDelete(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+  Future<bool?> _showDeleteConfirm(BuildContext context) async {
+    return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Delete Transaction?', style: TextStyle(fontWeight: FontWeight.w900)),
-        content: Text('This will permanently remove this record.'),
+        content: const Text('Are you sure you want to remove this record?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -63,140 +61,125 @@ class TransactionCard extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w900),
-            ),
+            child: const Text('Delete', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w900)),
           ),
         ],
       ),
     );
-    return confirmed ?? false;
   }
 
   @override
   Widget build(BuildContext context) {
     final currency = context.watch<CurrencyProvider>();
     final colors = context.colors;
+    final payment = _getPaymentDetails(paymentMode);
 
-    final card = InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: colors.surfaceVariant.withValues(alpha: 0.5),
-              width: 0.5,
-            ),
+    Widget cardContent = Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.surfaceVariant.withValues(alpha: 0.4), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
-        ),
-        child: Row(
-          children: [
-            // Icon
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: colors.surfaceVariant, width: 1),
-              ),
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 22),
-              ),
-            ),
-            const SizedBox(width: 14),
-            // Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    category,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      color: colors.textPrimary,
-                    ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: colors.background,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
+                  alignment: Alignment.center,
+                  child: Text(icon, style: const TextStyle(fontSize: 26)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(_getPaymentIcon(paymentMode), size: 12, color: colors.textSecondary.withValues(alpha: 0.6)),
-                      const SizedBox(width: 4),
-                      Text(
-                        paymentMode,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                      if (note.isNotEmpty) ...[
-                        Text(" • ", style: TextStyle(color: colors.textSecondary.withValues(alpha: 0.3))),
-                        Flexible(
-                          child: Text(
-                            note,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: colors.textSecondary.withValues(alpha: 0.7),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Text(
+                            category,
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: colors.textPrimary),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: (payment['color'] as Color).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              payment['icon'] as IconData,
+                              size: 14,
+                              color: (payment['color'] as Color),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        date,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            // Amount
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
+                ),
                 Text(
-                  '$amountPrefix ${currency.format(amount, showDecimals: true)}',
+                  '$amountPrefix${currency.format(amount)}',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
                     color: amountColor,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  date,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: colors.textDisabled,
-                  ),
-                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
 
-    if (id == null || onDelete == null) return card;
+    if (onDelete != null && id != null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Dismissible(
+          key: Key(id!),
+          direction: DismissDirection.endToStart,
+          confirmDismiss: (dir) => _showDeleteConfirm(context),
+          onDismissed: (dir) => onDelete?.call(),
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28),
+          ),
+          child: cardContent,
+        ),
+      );
+    }
 
-    return Dismissible(
-      key: ValueKey(id),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) => onDelete?.call(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        color: AppColors.error,
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
-      ),
-      child: card,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: cardContent,
     );
   }
 }

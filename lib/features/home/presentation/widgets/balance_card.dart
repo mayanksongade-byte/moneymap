@@ -27,10 +27,7 @@ class BalanceCard extends StatefulWidget {
 
 class _BalanceCardState extends State<BalanceCard>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  // FIX: balance now starts hidden by default — matches how fintech apps
-  // (Cred, Jupiter, revolut) behave on cold start, so nothing sensitive
-  // flashes on screen before the user chooses to reveal it.
-  bool _hideBalance = true;
+  bool _hideBalance = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -84,29 +81,34 @@ class _BalanceCardState extends State<BalanceCard>
   String get _updatedText {
     final now = DateTime.now();
     final d = now.difference(_updatedAt);
-    if (d.inSeconds < 60) return 'Just now';
+    if (d.inSeconds < 60) return 'just now';
     if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return DateFormat('MMM dd').format(_updatedAt);
+    return 'at ${DateFormat('h:mm a').format(_updatedAt)}';
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final currency = context.watch<CurrencyProvider>();
-    final colors = context.colors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.surfaceVariant, width: 1.5),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0A58EE),
+            Color(0xFF009FFD),
+            Color(0xFF2AF598),
+          ],
+          stops: [0.0, 0.6, 1.0],
+        ),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            color: const Color(0xFF0A58EE).withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -118,116 +120,92 @@ class _BalanceCardState extends State<BalanceCard>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Total Balance',
+              const Text(
+                'TOTAL BALANCE',
                 style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
                 ),
               ),
-              // FIX: premium touch — proper tap target with splash +
-              // tooltip + a small rotation/fade as the icon swaps, instead
-              // of a bare GestureDetector snapping between two icons.
-              Material(
-                color: Colors.transparent,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: _toggle,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Tooltip(
-                      message: _hideBalance ? 'Show balance' : 'Hide balance',
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        transitionBuilder: (child, anim) => ScaleTransition(
-                          scale: anim,
-                          child: FadeTransition(opacity: anim, child: child),
-                        ),
-                        child: Icon(
-                          _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                          key: ValueKey(_hideBalance),
-                          color: colors.textDisabled,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          // FIX: smooth crossfade+slight-scale when toggling hide/show,
-          // instead of the amount just snapping to dots instantly.
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 260),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, anim) => FadeTransition(
-              opacity: anim,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.94, end: 1.0).animate(anim),
-                alignment: Alignment.centerLeft,
-                child: child,
-              ),
-            ),
-            child: _hideBalance
-                ? Text(
-              '${currency.currencySymbol} ••••••',
-              key: const ValueKey('hidden'),
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w900,
-                color: colors.textPrimary,
-                letterSpacing: -1.2,
-              ),
-            )
-                : AnimatedBuilder(
-              key: const ValueKey('visible'),
-              animation: _c,
-              builder: (context, _) {
-                final val = _fromBalance +
-                    (widget.balance - _fromBalance) * Curves.easeOutCubic.transform(_c.value);
-                return Text(
-                  currency.format(val, showDecimals: true),
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    color: colors.textPrimary,
-                    letterSpacing: -1.2,
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
           Row(
             children: [
-              _buildStat(context, 'Income', widget.income, AppColors.success, Icons.arrow_downward_rounded),
-              const SizedBox(width: 24),
-              _buildStat(context, 'Expense', widget.expense, AppColors.error, Icons.arrow_upward_rounded),
+              AnimatedBuilder(
+                animation: _c,
+                builder: (context, _) {
+                  final val = _fromBalance + (widget.balance - _fromBalance) * Curves.easeOutCubic.transform(_c.value);
+                  return Text(
+                    _hideBalance ? '${currency.currencySymbol} ••••••' : currency.format(val, showDecimals: true),
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -1.0,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: _toggle,
+                icon: Icon(
+                  _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 12),
+                const SizedBox(width: 4),
+                Text(
+                  '+ ${currency.format(widget.income - widget.expense)} this month',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              Expanded(child: _buildStatItem('MONEY IN', widget.income, Icons.arrow_downward_rounded)),
+              Container(width: 1, height: 30, color: Colors.white24),
+              Expanded(child: _buildStatItem('MONEY OUT', widget.expense, Icons.arrow_upward_rounded)),
             ],
           ),
           const SizedBox(height: 20),
-          Divider(color: colors.surfaceVariant, height: 1),
-          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.history_rounded, size: 14, color: colors.textDisabled),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Updated $_updatedText',
-                    style: TextStyle(fontSize: 11, color: colors.textDisabled, fontWeight: FontWeight.w600),
-                  ),
-                ],
+              const Icon(Icons.access_time_rounded, size: 14, color: Colors.white60),
+              const SizedBox(width: 6),
+              Text(
+                'Updated $_updatedText',
+                style: const TextStyle(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.w600),
               ),
-              const Icon(Icons.security_rounded, size: 14, color: AppColors.success),
             ],
           ),
         ],
@@ -235,40 +213,33 @@ class _BalanceCardState extends State<BalanceCard>
     );
   }
 
-  Widget _buildStat(BuildContext context, String label, double amount, Color color, IconData icon) {
+  Widget _buildStatItem(String label, double amount, IconData icon) {
     final currency = context.watch<CurrencyProvider>();
-    final colors = context.colors;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.0,
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: label == 'MONEY IN' ? Colors.tealAccent.withValues(alpha: 0.2) : Colors.redAccent.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
               ),
+              child: Icon(icon, size: 12, color: label == 'MONEY IN' ? Colors.tealAccent : Colors.redAccent),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.5),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-          child: Text(
-            _hideBalance ? '••••' : currency.format(amount),
-            key: ValueKey('$label-$_hideBalance-$amount'),
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+        Text(
+          currency.format(amount, showDecimals: true),
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
         ),
       ],
     );

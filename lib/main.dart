@@ -8,6 +8,7 @@ import 'core/theme/theme_provider.dart';
 import 'core/providers/currency_provider.dart';
 import 'config/routes/app_router.dart';
 import 'core/services/service_locator.dart';
+import 'core/services/notification_service.dart';
 import 'features/auth/presentation/providers/app_auth_provider.dart';
 import 'features/home/presentation/providers/transaction_provider.dart';
 import 'features/budget/presentation/providers/budget_provider.dart';
@@ -16,12 +17,17 @@ import 'features/category/presentation/providers/category_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ૧. પહેલા Firebase ઇનિશિયલાઇઝ કરો
+  // 1. Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ૨. Firebase સેટઅપ થયા પછી જ GetIt સર્વિસ લોકેટર સેટઅપ કરો
+  // 2. Initialize Notification Service
+  final notificationService = NotificationService();
+  await notificationService.init();
+  await notificationService.requestPermissions();
+
+  // 3. Setup Service Locator
   await setupServiceLocator();
 
   runApp(const MyApp());

@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import '../../constants/color_constants.dart';
 import '../../../core/theme/app_colors_extension.dart';
+import '../../../config/routes/app_routes.dart';
 
 class AppBottomNav extends StatefulWidget {
   final int currentIndex;
@@ -83,8 +85,27 @@ class _AppBottomNavState extends State<AppBottomNav>
   }
 
   void _tap(int i) {
+    // If we are already on the current tab, do nothing (except for Add button)
     if (widget.currentIndex == i && i != 2) return;
+    
     i == 2 ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
+
+    // Centralized Navigation Logic
+    switch (i) {
+      case 0:
+        context.go(AppRoutes.home);
+        break;
+      case 1:
+        context.push(AppRoutes.statistics);
+        break;
+      case 2:
+        context.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'});
+        break;
+      case 3:
+        context.push(AppRoutes.profile);
+        break;
+    }
+
     widget.onTap(i);
   }
 
@@ -97,7 +118,6 @@ class _AppBottomNavState extends State<AppBottomNav>
     const double barHeight = 72;
 
     return Padding(
-      // આખા સેક્શનને ઉપર કરવા માટે પેડિંગ વધાર્યું
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 10),
       child: Stack(
         clipBehavior: Clip.none,
@@ -219,29 +239,33 @@ class _AppBottomNavState extends State<AppBottomNav>
       onTapDown: (_) => setState(() => _pressed = index),
       onTapCancel: () => setState(() => _pressed = -1),
       onTapUp: (_) => setState(() => _pressed = -1),
-      onTap: () => _tap(index),
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 120),
-        scale: _pressed == index ? 0.92 : 1.0,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              selected ? item.filled : item.outlined,
-              color: color,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.label.toUpperCase(),
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+      child: InkWell(
+        onTap: () => _tap(index),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 120),
+          scale: _pressed == index ? 0.92 : 1.0,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected ? item.filled : item.outlined,
                 color: color,
-                letterSpacing: 0.5,
+                size: 24,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                item.label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: color,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

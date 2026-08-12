@@ -57,7 +57,13 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.addTransaction,
-        builder: (context, state) => const AddTransactionScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return AddTransactionScreen(
+            transactionToEdit: extra?['transactionToEdit'] as TransactionModel?,
+            initialType: extra?['initialType'] as String?,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.allTransactions,

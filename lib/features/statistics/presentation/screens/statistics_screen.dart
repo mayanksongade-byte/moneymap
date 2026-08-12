@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/core/widgets/common/app_bottom_nav.dart';
 import 'package:moneymap/features/home/data/models/category_model.dart';
@@ -12,6 +13,7 @@ import 'package:moneymap/features/home/presentation/providers/transaction_provid
 import 'package:moneymap/features/category/presentation/providers/category_provider.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/providers/currency_provider.dart';
+import '../../../../config/routes/app_routes.dart';
 
 enum StatsPeriod { week, month, year, all }
 
@@ -47,7 +49,7 @@ class StatisticsScreen extends StatefulWidget {
 
 class _StatisticsScreenState extends State<StatisticsScreen>
     with TickerProviderStateMixin {
-  int _currentIndex = 1;
+  final int _currentIndex = 1;
   int _touchedIndex = -1;
   int _touchedModeIndex = -1;
   StatsPeriod _period = StatsPeriod.month;
@@ -143,17 +145,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   }
 
   void _onNavTap(int index) {
-    setState(() => _currentIndex = index);
-    switch (index) {
-      case 0:
-        Navigator.pop(context);
-      case 1:
-        break;
-      case 2:
-        Navigator.pushNamed(context, '/add-transaction');
-      case 3:
-        Navigator.pushNamed(context, '/profile');
-    }
+    if (index == _currentIndex) return;
+    // Navigation is handled inside AppBottomNav
   }
 
   void _setPeriod(StatsPeriod p) {
@@ -242,6 +235,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     return Scaffold(
       backgroundColor: context.colors.background,
+      extendBody: true,
       body: RefreshIndicator(
         color: AppColors.primary,
         backgroundColor: context.colors.surface,
@@ -257,7 +251,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   final t = Curves.easeOutCubic.transform(_c.value);
                   if (loading) return _skeleton();
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -406,7 +400,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       title: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () => context.go(AppRoutes.home),
             child: Container(
               width: 46,
               height: 46,
@@ -1494,7 +1488,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 TextStyle(color: context.colors.textSecondary, fontSize: 12.5)),
         const SizedBox(height: 14),
         FilledButton.icon(
-          onPressed: () => Navigator.pushNamed(context, '/add-transaction'),
+          onPressed: () => context.push(AppRoutes.addTransaction),
           icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text('Add Transaction'),
           style: FilledButton.styleFrom(

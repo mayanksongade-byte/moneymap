@@ -1,105 +1,156 @@
-// import 'dart:async';
-// import 'package:firebase_messaging/firebase_messaging.dart';
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-// import 'package:flutter/foundation.dart';
-//
-// class NotificationService {
-//   static final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
-//   FlutterLocalNotificationsPlugin();
-//
-//   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-//
-//   static Future<void> initialize() async {
-//     try {
-//       // ૧. નોટિફિકેશન માટેની પરવાનગી લેવી
-//       await _messaging.requestPermission(
-//         alert: true,
-//         badge: true,
-//         sound: true,
-//       );
-//
-//       // ૨. લોકલ નોટિફિકેશન સેટઅપ
-//       const AndroidInitializationSettings initializationSettingsAndroid =
-//       AndroidInitializationSettings('@mipmap/ic_launcher');
-//
-//       const InitializationSettings initializationSettings = InitializationSettings(
-//         android: initializationSettingsAndroid,
-//         iOS: DarwinInitializationSettings(),
-//       );
-//
-//       await _localNotificationsPlugin.initialize(
-//         initializationSettings,
-//         onDidReceiveNotificationResponse: (NotificationResponse details) {
-//           // જ્યારે યુઝર નોટિફિકેશન પર ટેપ કરે ત્યારે
-//           debugPrint("Notification tapped: ${details.payload}");
-//         },
-//       );
-//
-//       // ૩. એન્ડ્રોઇડ નોટિફિકેશન ચેનલ (હાઇ ઇમ્પોર્ટન્સ માટે)
-//       const AndroidNotificationChannel channel = AndroidNotificationChannel(
-//         'high_importance_channel',
-//         'High Importance Notifications',
-//         description: 'This channel is used for important notifications.',
-//         importance: Importance.max,
-//         playSound: true,
-//       );
-//
-//       await _localNotificationsPlugin
-//           .resolvePlatformSpecificImplementation<
-//           AndroidFlutterLocalNotificationsPlugin>()
-//           ?.createNotificationChannel(channel);
-//
-//       // ૪. જ્યારે એપ ચાલુ હોય (Foreground) ત્યારે મેસેજ સાંભળવા
-//       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-//         RemoteNotification? notification = message.notification;
-//         if (notification != null) {
-//           showLocalNotification(
-//             title: notification.title ?? '',
-//             body: notification.body ?? '',
-//             payload: message.data.toString(),
-//           );
-//         }
-//       });
-//
-//       // ૫. જ્યારે એપ બેકગ્રાઉન્ડમાં હોય અને નોટિફિકેશન પર ક્લિક કરો ત્યારે
-//       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-//         debugPrint("App opened via notification: ${message.data}");
-//       });
-//
-//       // ૬. FCM ટોકન મેળવવું
-//       _messaging.getToken().then((token) {
-//         if (kDebugMode) print("Firebase Messaging Token: $token");
-//       });
-//
-//     } catch (e) {
-//       debugPrint("Notification Service Init Error: $e");
-//     }
-//   }
-//
-//   static Future<void> showLocalNotification({
-//     required String title,
-//     required String body,
-//     String? payload,
-//   }) async {
-//     const AndroidNotificationDetails androidPlatformChannelSpecifics =
-//     AndroidNotificationDetails(
-//       'high_importance_channel',
-//       'High Importance Notifications',
-//       importance: Importance.max,
-//       priority: Priority.high,
-//       icon: '@mipmap/ic_launcher',
-//       playSound: true,
-//     );
-//
-//     const NotificationDetails platformChannelSpecifics =
-//     NotificationDetails(android: androidPlatformChannelSpecifics);
-//
-//     await _localNotificationsPlugin.show(
-//       0,
-//       title,
-//       body,
-//       platformChannelSpecifics,
-//       payload: payload,
-//     );
-//   }
-// }
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import '../../config/routes/app_router.dart';
+import '../../config/routes/app_routes.dart';
+
+class NotificationService {
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  
+  bool _sent80Alert = false;
+  bool _sent100Alert = false;
+  int _lastMonth = -1;
+
+  Future<void> init() async {
+    tz.initializeTimeZones();
+    
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+    );
+
+    await _notificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse details) {
+        if (details.payload != null && details.payload!.isNotEmpty) {
+          AppRouter.router.push(details.payload!);
+        }
+      },
+    );
+  }
+
+  Future<void> requestPermissions() async {
+    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+        _notificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    
+    await androidImplementation?.requestNotificationsPermission();
+  }
+
+  void checkBudgetAndNotify(double currentExpense, double? limit) {
+    if (limit == null || limit <= 0) return;
+
+    final now = DateTime.now();
+    if (_lastMonth != now.month) {
+      _lastMonth = now.month;
+      _sent80Alert = false;
+      _sent100Alert = false;
+    }
+
+    final percentage = (currentExpense / limit) * 100;
+
+    if (percentage >= 100 && !_sent100Alert) {
+      showInstantNotification(
+        id: 101,
+        title: 'Budget Exceeded! ⚠️ (${percentage.toStringAsFixed(0)}%)',
+        body: 'Spent ₹${currentExpense.toInt()} of ₹${limit.toInt()}. You are over budget!',
+        payload: AppRoutes.budget,
+      );
+      _sent100Alert = true;
+      _sent80Alert = true; 
+    } else if (percentage >= 80 && !_sent80Alert && percentage < 100) {
+      showInstantNotification(
+        id: 100,
+        title: 'Budget Alert 💸 (${percentage.toStringAsFixed(0)}%)',
+        body: 'You have used ${percentage.toStringAsFixed(0)}% of your budget (₹${currentExpense.toInt()}/₹${limit.toInt()}).',
+        payload: AppRoutes.budget,
+      );
+      _sent80Alert = true;
+    }
+  }
+
+  Future<void> showInstantNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'budget_alerts',
+      'Budget Alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: DarwinNotificationDetails(),
+    );
+
+    await _notificationsPlugin.show(
+      id, 
+      title, 
+      body, 
+      platformChannelSpecifics,
+      payload: payload ?? AppRoutes.budget,
+    );
+  }
+
+  Future<void> scheduleDailyReminder({
+    required int id,
+    required int hour,
+    required int minute,
+  }) async {
+    await _notificationsPlugin.zonedSchedule(
+      id,
+      'MoneyMap Reminder 💰',
+      'Did you forget to add today\'s expenses? Add them now!',
+      _nextInstanceOfTime(hour, minute),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'daily_reminders',
+          'Daily Reminders',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      payload: AppRoutes.addTransaction,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  Future<void> cancelNotification(int id) async {
+    await _notificationsPlugin.cancel(id);
+  }
+
+  tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    return scheduledDate;
+  }
+}
