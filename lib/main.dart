@@ -23,7 +23,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 2. Initialize Notification Service Foundation
+  // 2. Initialize Notification Service
   final notificationService = NotificationService();
   await notificationService.init();
   await notificationService.requestPermissions();
@@ -47,14 +47,26 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BudgetProvider()..loadBudget()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
-        ChangeNotifierProxyProvider2<TransactionProvider, BudgetProvider, NotificationProvider>(
+        ChangeNotifierProxyProvider3<TransactionProvider, BudgetProvider, CurrencyProvider, NotificationProvider>(
           create: (_) => NotificationProvider()..loadSettings(),
-          update: (context, transactionProvider, budgetProvider, notificationProvider) {
+          update: (context, transactionProvider, budgetProvider, currencyProvider, notificationProvider) {
             if (notificationProvider != null) {
-              // Automatically check budget whenever data changes
+              // 1. INSTANT BUDGET CHECK: When limit is crossed
               notificationProvider.checkBudgetStatus(
                 transactionProvider.monthlyExpense,
                 budgetProvider.monthlyLimit,
+                currencySymbol: currencyProvider.currencySymbol,
+              );
+
+              // 2. WEEKLY SMART RECAP: Update info for Sunday morning
+              notificationProvider.updateSmartInsights(
+                transactionProvider.transactions,
+                currencyProvider.currencySymbol,
+              );
+
+              // 3. DAILY ACTIVITY INSIGHT: Update evening reminder message
+              notificationProvider.updateDailyActivityInsight(
+                transactionProvider.transactions,
               );
             }
             return notificationProvider!;

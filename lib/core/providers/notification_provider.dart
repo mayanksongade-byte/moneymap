@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../services/notification_service.dart';
+import '../services/notification_service.dart' hide debugPrint;
+import '../../features/home/data/models/transaction_model.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
@@ -19,7 +19,7 @@ class NotificationProvider extends ChangeNotifier {
   bool _sent100Alert = false;
   bool _isInitialized = false;
 
-  // Cache for initial check if data arrives before settings
+  // Cache for initial check
   double? _pendingExpense;
   double? _pendingLimit;
 
@@ -55,63 +55,93 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       _isInitialized = true;
-      debugPrint('[NOTIFICATION PROVIDER] Settings loaded. Initialized: true');
       
-      // Perform pending check if data arrived during load
       if (_pendingExpense != null) {
         checkBudgetStatus(_pendingExpense!, _pendingLimit);
       }
 
-      notifyListeners();
       _applyScheduling();
+      notifyListeners();
     } catch (e) {
-      debugPrint('[NOTIFICATION PROVIDER] Error loading settings: $e');
+      debugPrint('Error loading settings: $e');
     }
   }
 
-  Future<void> setNotificationsEnabled(bool value) async {
-    _notificationsEnabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('notifications_enabled', value);
-    notifyListeners();
-    _applyScheduling();
+  // --- SMART NOTIFICATION LOGIC ---
+
+  void updateSmartInsights(List<TransactionModel> transactions, String symbol) {
+    if (!_notificationsEnabled || !_isInitialized) return;
+
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    
+    final weeklyExpenses = transactions.where((t) => 
+      t.type.toLowerCase() == 'expense' && t.date.isAfter(sevenDaysAgo)
+    ).toList();
+
+    if (weeklyExpenses.isEmpty) {
+      _notificationService.scheduleWeeklySummary(
+        hour: 11,
+        minute: 30,
+        body: "No expenses recorded this week. Tracking helps you save more! 📝",
+      );
+      return;
+    }
+
+    double totalSpent = 0;
+    Map<String, double> categoryMap = {};
+
+    for (var t in weeklyExpenses) {
+      totalSpent += t.amount;
+      categoryMap[t.category] = (categoryMap[t.category] ?? 0) + t.amount;
+    }
+
+    String topCategory = categoryMap.entries.first.key;
+    double maxAmount = categoryMap.entries.first.value;
+    categoryMap.forEach((key, value) {
+      if (value > maxAmount) {
+        topCategory = key;
+        maxAmount = value;
+      }
+    });
+
+    final String message = "Weekly Recap: You spent $symbol${totalSpent.toStringAsFixed(0)} this week. 📊 Your biggest expense was $topCategory ($symbol${maxAmount.toStringAsFixed(0)}).";
+
+    _notificationService.scheduleWeeklySummary(hour: 11, minute: 30, body: message);
   }
 
-  Future<void> setMorningEnabled(bool value) async {
-    _morningEnabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('morning_reminder_enabled', value);
-    notifyListeners();
-    _applyScheduling();
+  /// Updates daily activity status (Point 5 - Smart Evening Insight)
+  void updateDailyActivityInsight(List<TransactionModel> transactions) {
+    if (!_notificationsEnabled || !_isInitialized || !_eveningEnabled) return;
+
+    final now = DateTime.now();
+    final todayLogs = transactions.where((t) => 
+      t.date.year == now.year && t.date.month == now.month && t.date.day == now.day
+    ).toList();
+
+    if (todayLogs.isEmpty) {
+      _notificationService.scheduleEveningReminder(
+        _eveningTime.hour, 
+        _eveningTime.minute,
+        customBody: "You haven't added any transactions today! 📝 Take 10 seconds to log your expenses now.",
+      );
+    } else {
+      _notificationService.scheduleEveningReminder(_eveningTime.hour, _eveningTime.minute);
+    }
   }
 
-  Future<void> setMorningTime(TimeOfDay time) async {
-    _morningTime = time;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('morning_reminder_hour', time.hour);
-    await prefs.setInt('morning_reminder_minute', time.minute);
-    notifyListeners();
-    _applyScheduling();
+  // --- ACTIONS & TRIGGERS ---
+
+  void notifyTransactionAdded(TransactionModel transaction, {required String formattedAmount, required String formattedBalance}) {
+    if (!_notificationsEnabled) return;
+    _notificationService.showTransactionAlert(
+      transaction: transaction,
+      formattedAmount: formattedAmount,
+      formattedBalance: formattedBalance,
+    );
   }
 
-  Future<void> setEveningEnabled(bool value) async {
-    _eveningEnabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('evening_reminder_enabled', value);
-    notifyListeners();
-    _applyScheduling();
-  }
-
-  Future<void> setEveningTime(TimeOfDay time) async {
-    _eveningTime = time;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('evening_reminder_hour', time.hour);
-    await prefs.setInt('evening_reminder_minute', time.minute);
-    notifyListeners();
-    _applyScheduling();
-  }
-
-  void checkBudgetStatus(double currentExpense, double? limit) {
+  void checkBudgetStatus(double currentExpense, double? limit, {String currencySymbol = '₹'}) {
     if (!_isInitialized) {
       _pendingExpense = currentExpense;
       _pendingLimit = limit;
@@ -121,18 +151,16 @@ class NotificationProvider extends ChangeNotifier {
     if (!_notificationsEnabled || limit == null || limit <= 0) return;
 
     final currentMonth = "${DateTime.now().year}-${DateTime.now().month}";
-    
     if (_lastBudgetAlertMonth != currentMonth) {
       _handleMonthChange(currentMonth);
     }
 
     final percent = (currentExpense / limit) * 100;
-    debugPrint('[NOTIFICATION PROVIDER] Checking Budget: $currentExpense/$limit ($percent%)');
 
     if (percent >= 100 && !_sent100Alert) {
-      _triggerBudget100Alert();
+      _triggerBudget100Alert(currentExpense, limit, currencySymbol);
     } else if (percent >= 80 && !_sent80Alert && percent < 100) {
-      _triggerBudget80Alert();
+      _triggerBudget80Alert(currentExpense, limit, currencySymbol);
     }
   }
 
@@ -148,38 +176,79 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _triggerBudget80Alert() async {
+  void _triggerBudget80Alert(double spent, double limit, String symbol) {
     _sent80Alert = true;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sent_80_alert', true);
-    
-    await _notificationService.showBudgetAlert(
+    notifyListeners();
+
+    final remaining = limit - spent;
+    _notificationService.showBudgetAlert(
       id: NotificationService.budget80Id,
-      title: 'Budget check ⚠️',
-      body: "You've used 80% of your monthly budget.",
-      actions: [
-        const AndroidNotificationAction(NotificationService.actionViewBudget, 'View Budget', showsUserInterface: true),
-      ],
+      title: 'Budget Alert: 80% Reached! ⚠️',
+      body: "You've spent $symbol${spent.toStringAsFixed(0)} of your $symbol${limit.toStringAsFixed(0)} limit. Only $symbol${remaining.toStringAsFixed(0)} left for this month. 💸",
     );
+
+    SharedPreferences.getInstance().then((prefs) => prefs.setBool('sent_80_alert', true));
+  }
+
+  void _triggerBudget100Alert(double spent, double limit, String symbol) {
+    _sent100Alert = true;
+    _sent80Alert = true; 
+    notifyListeners();
+
+    _notificationService.showBudgetAlert(
+      id: NotificationService.budget100Id,
+      title: 'Budget Limit Exceeded! 🚨',
+      body: "Warning: You've crossed your $symbol${limit.toStringAsFixed(0)} budget. 📉",
+    );
+
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setBool('sent_100_alert', true);
+      prefs.setBool('sent_80_alert', true);
+    });
+  }
+
+  // --- SETTINGS ---
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    _notificationsEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', value);
+    if (value) await _notificationService.requestPermissions();
+    _applyScheduling();
     notifyListeners();
   }
 
-  Future<void> _triggerBudget100Alert() async {
-    _sent100Alert = true;
-    _sent80Alert = true; // Mark 80 as sent to prevent it firing if expense drops
+  Future<void> setMorningEnabled(bool value) async {
+    _morningEnabled = value;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sent_100_alert', true);
-    await prefs.setBool('sent_80_alert', true);
-    
-    await _notificationService.showBudgetAlert(
-      id: NotificationService.budget100Id,
-      title: 'Budget exceeded',
-      body: "You've crossed your monthly budget. Review your spending to stay in control.",
-      actions: [
-        const AndroidNotificationAction(NotificationService.actionViewBudget, 'View Budget', showsUserInterface: true),
-        const AndroidNotificationAction(NotificationService.actionViewStatistics, 'View Statistics', showsUserInterface: true),
-      ],
-    );
+    await prefs.setBool('morning_reminder_enabled', value);
+    _applyScheduling();
+    notifyListeners();
+  }
+
+  Future<void> setMorningTime(TimeOfDay time) async {
+    _morningTime = time;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('morning_reminder_hour', time.hour);
+    await prefs.setInt('morning_reminder_minute', time.minute);
+    _applyScheduling();
+    notifyListeners();
+  }
+
+  Future<void> setEveningEnabled(bool value) async {
+    _eveningEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('evening_reminder_enabled', value);
+    _applyScheduling();
+    notifyListeners();
+  }
+
+  Future<void> setEveningTime(TimeOfDay time) async {
+    _eveningTime = time;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('evening_reminder_hour', time.hour);
+    await prefs.setInt('evening_reminder_minute', time.minute);
+    _applyScheduling();
     notifyListeners();
   }
 
@@ -197,19 +266,10 @@ class NotificationProvider extends ChangeNotifier {
     if (!_notificationsEnabled) {
       _notificationService.cancelReminder(NotificationService.morningReminderId);
       _notificationService.cancelReminder(NotificationService.eveningReminderId);
+      _notificationService.cancelReminder(NotificationService.weeklySummaryId);
       return;
     }
-
-    if (_morningEnabled) {
-      _notificationService.scheduleMorningReminder(_morningTime.hour, _morningTime.minute);
-    } else {
-      _notificationService.cancelReminder(NotificationService.morningReminderId);
-    }
-
-    if (_eveningEnabled) {
-      _notificationService.scheduleEveningReminder(_eveningTime.hour, _eveningTime.minute);
-    } else {
-      _notificationService.cancelReminder(NotificationService.eveningReminderId);
-    }
+    if (_morningEnabled) _notificationService.scheduleMorningReminder(_morningTime.hour, _morningTime.minute);
+    if (_eveningEnabled) _notificationService.scheduleEveningReminder(_eveningTime.hour, _eveningTime.minute);
   }
 }

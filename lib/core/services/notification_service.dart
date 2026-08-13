@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../config/routes/app_router.dart';
 import '../../config/routes/app_routes.dart';
+import '../../features/home/data/models/transaction_model.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -14,41 +15,24 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
-  // Stable IDs (Permanent)
   static const int morningReminderId = 1000;
   static const int eveningReminderId = 1001;
-  
-  // Stable IDs (Temporary Reminders)
-  static const int tempMorningReminderId = 1002;
-  static const int tempEveningReminderId = 1003;
-
-  // Budget IDs
+  static const int weeklySummaryId = 1004; 
   static const int budget80Id = 2000;
   static const int budget100Id = 2001;
-  static const int diagnosticId = 9999;
 
-  // IMPORTANT: Changed channel ID to force Android to apply new HIGH IMPORTANCE settings
-  static const String channelId = 'moneymap_urgent_alerts_v1';
-  static const String channelName = 'MoneyMap Alerts';
-
-  // Action Identifiers
   static const String actionAddTransaction = 'add_transaction';
-  static const String actionRemindLater30 = 'remind_later_30';
-  static const String actionAddExpense = 'add_expense';
-  static const String actionRemindLater60 = 'remind_later_60';
   static const String actionViewBudget = 'view_budget';
   static const String actionViewStatistics = 'view_statistics';
+
+  static const String channelId = 'moneymap_smart_v16';
+  static const String channelName = 'MoneyMap Smart Insights';
 
   Future<void> init() async {
     try {
       tz.initializeTimeZones();
-      try {
-        final String timeZoneName = await FlutterTimezone.getLocalTimezone();
-        tz.setLocalLocation(tz.getLocation(timeZoneName));
-        debugPrint('[NOTIFICATION] Local Timezone: $timeZoneName');
-      } catch (e) {
-        debugPrint('[NOTIFICATION] Timezone error: $e');
-      }
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
 
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -69,223 +53,76 @@ class NotificationService {
         },
       );
 
-      final launchDetails = await _notificationsPlugin.getNotificationAppLaunchDetails();
-      if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
-        _handleNotificationTap(launchDetails.notificationResponse);
-      }
-
       await _createNotificationChannel();
-      debugPrint('[NOTIFICATION] Service Initialized with URGENT channel');
     } catch (e) {
-      debugPrint('[NOTIFICATION] init EXCEPTION: $e');
+      debugPrint('[NOTIFICATION] init error: $e');
     }
   }
 
   void _handleNotificationTap(NotificationResponse? details) {
     if (details == null) return;
     
-    final payload = details.payload;
-    final actionId = details.actionId;
-
-    if (actionId != null) {
-      switch (actionId) {
-        case actionAddTransaction:
-          AppRouter.router.push(AppRoutes.addTransaction);
-          break;
-        case actionAddExpense:
-          AppRouter.router.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'});
-          break;
-        case actionViewBudget:
-          AppRouter.router.push(AppRoutes.budget);
-          break;
-        case actionViewStatistics:
-          AppRouter.router.push(AppRoutes.statistics);
-          break;
-        case actionRemindLater30:
-          scheduleTemporaryReminder(
-            id: tempMorningReminderId,
-            title: 'Good morning 👋',
-            body: 'Start your day with a clear view of your money.',
-            minutes: 30,
-            payload: 'morning',
-          );
-          break;
-        case actionRemindLater60:
-          scheduleTemporaryReminder(
-            id: tempEveningReminderId,
-            title: 'How was your spending today? 💳',
-            body: 'Take a moment to record today\'s expenses.',
-            minutes: 60,
-            payload: 'evening',
-          );
-          break;
-      }
-      return;
-    }
-
-    if (payload != null) {
-      if (payload == 'morning' || payload == 'evening') {
-        AppRouter.router.push(AppRoutes.addTransaction);
-      } else if (payload == 'budget') {
-        AppRouter.router.push(AppRoutes.budget);
-      }
+    if (details.actionId == actionViewBudget || details.payload == 'budget') {
+      AppRouter.router.push(AppRoutes.budget);
+    } else if (details.id == weeklySummaryId || details.payload == 'statistics') {
+      AppRouter.router.push(AppRoutes.statistics);
+    } else {
+      AppRouter.router.push(AppRoutes.addTransaction);
     }
   }
 
   Future<void> _createNotificationChannel() async {
     if (!Platform.isAndroid) return;
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      channelId,
-      channelName,
-      description: 'Instant reminders and budget alerts',
-      importance: Importance.max, // High priority heads-up
+      channelId, channelName,
+      description: 'Smart insights and weekly recaps',
+      importance: Importance.max,
       enableVibration: true,
       playSound: true,
-      showBadge: true,
     );
     await _notificationsPlugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
   }
 
-  Future<void> scheduleMorningReminder(int hour, int minute) async {
-    await _scheduleDaily(
-      id: morningReminderId,
-      title: 'Good morning 👋',
-      body: 'Start your day with a clear view of your money.',
-      hour: hour,
-      minute: minute,
-      payload: 'morning',
-      actions: [
-        const AndroidNotificationAction(actionAddTransaction, 'Add Transaction', showsUserInterface: true),
-        const AndroidNotificationAction(actionRemindLater30, 'Remind Later', showsUserInterface: true),
-      ],
-    );
-  }
-
-  Future<void> scheduleEveningReminder(int hour, int minute) async {
-    await _scheduleDaily(
-      id: eveningReminderId,
-      title: 'How was your spending today? 💳',
-      body: 'Take a moment to record today\'s expenses.',
-      hour: hour,
-      minute: minute,
-      payload: 'evening',
-      actions: [
-        const AndroidNotificationAction(actionAddExpense, 'Add Expense', showsUserInterface: true),
-        const AndroidNotificationAction(actionRemindLater60, 'Remind in 1 Hour', showsUserInterface: true),
-      ],
-    );
-  }
-
-  Future<void> _scheduleDaily({
-    required int id,
-    required String title,
-    required String body,
+  Future<void> scheduleWeeklySummary({
     required int hour,
     required int minute,
-    String? payload,
-    List<AndroidNotificationAction>? actions,
+    required String body,
   }) async {
     try {
-      final nextTime = _nextInstanceOfTime(hour, minute);
+      await _notificationsPlugin.cancel(weeklySummaryId);
+      tz.TZDateTime scheduledDate = _nextInstanceOfSunday(hour, minute);
+
       await _notificationsPlugin.zonedSchedule(
-        id,
-        title,
+        weeklySummaryId,
+        'Weekly Financial Recap 📊',
         body,
-        nextTime,
+        scheduledDate,
         NotificationDetails(
           android: AndroidNotificationDetails(
             channelId, channelName,
             importance: Importance.max,
             priority: Priority.max,
-            actions: actions,
-            showWhen: true,
+            styleInformation: BigTextStyleInformation(body),
           ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
+          iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
         ),
-        payload: payload,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
     } catch (e) {
-      debugPrint('[NOTIFICATION] Schedule error for ID $id: $e');
+      debugPrint('[NOTIFICATION] Weekly Schedule error: $e');
     }
   }
 
-  Future<void> scheduleTemporaryReminder({
-    required int id,
-    required String title,
-    required String body,
-    required int minutes,
-    String? payload,
-  }) async {
-    try {
-      await _notificationsPlugin.cancel(id);
-      final scheduledDate = tz.TZDateTime.now(tz.local).add(Duration(minutes: minutes));
-      await _notificationsPlugin.zonedSchedule(
-        id, title, body, scheduledDate,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            channelId, channelName,
-            importance: Importance.max,
-            priority: Priority.max,
-            showWhen: true,
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
-        payload: payload,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } catch (e) {
-      debugPrint('[NOTIFICATION] Temp Schedule error: $e');
+  tz.TZDateTime _nextInstanceOfSunday(int hour, int minute) {
+    tz.TZDateTime scheduledDate = _nextInstanceOfTime(hour, minute);
+    while (scheduledDate.weekday != DateTime.sunday) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
-  }
-
-  Future<void> showBudgetAlert({
-    required int id,
-    required String title,
-    required String body,
-    List<AndroidNotificationAction>? actions,
-  }) async {
-    try {
-      await _notificationsPlugin.show(
-        id, title, body,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            channelId, channelName,
-            importance: Importance.max,
-            priority: Priority.max,
-            actions: actions,
-            showWhen: true,
-            onlyAlertOnce: false, // Ensures alert is delivered instantly every time it's triggered
-          ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
-        payload: 'budget',
-      );
-      debugPrint('[NOTIFICATION] Budget alert triggered instantly: $title');
-    } catch (e) {
-      debugPrint('[NOTIFICATION] Budget alert error: $e');
-    }
-  }
-
-  Future<void> cancelReminder(int id) async {
-    await _notificationsPlugin.cancel(id);
+    return scheduledDate;
   }
 
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
@@ -297,10 +134,73 @@ class NotificationService {
     return scheduledDate;
   }
 
+  Future<void> scheduleMorningReminder(int hour, int minute) async {
+    await _scheduleDaily(morningReminderId, 'Good Morning! ☀️', 'Track your morning expenses now.', hour, minute);
+  }
+
+  Future<void> scheduleEveningReminder(int hour, int minute, {String? customBody}) async {
+    await _scheduleDaily(eveningReminderId, 'Day Wrap-up 🌙', customBody ?? 'Record today\'s spending.', hour, minute);
+  }
+
+  Future<void> _scheduleDaily(int id, String title, String body, int h, int m) async {
+    await _notificationsPlugin.cancel(id);
+    await _notificationsPlugin.zonedSchedule(
+      id, title, body, _nextInstanceOfTime(h, m),
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelId, channelName, 
+          importance: Importance.max, 
+          priority: Priority.max,
+          styleInformation: BigTextStyleInformation(body),
+        )
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  Future<void> showBudgetAlert({
+    required int id, 
+    required String title, 
+    required String body,
+    List<AndroidNotificationAction>? actions,
+  }) async {
+    await _notificationsPlugin.show(id, title, body, NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId, channelName, 
+        importance: Importance.max, 
+        priority: Priority.max,
+        styleInformation: BigTextStyleInformation(body),
+        actions: actions,
+      ),
+    ));
+  }
+
+  Future<void> showTransactionAlert({required TransactionModel transaction, required String formattedAmount, required String formattedBalance}) async {
+    final isExpense = transaction.type.toLowerCase() == 'expense';
+    final title = isExpense ? 'Money Out! 💸' : 'Money In! 💰';
+    final body = '${transaction.category}: $formattedAmount\nUpdated Balance: $formattedBalance';
+    
+    final int notificationId = (transaction.id?.hashCode ?? DateTime.now().millisecondsSinceEpoch) & 0x7FFFFFFF;
+
+    await _notificationsPlugin.show(notificationId, title, body, NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId, channelName, 
+        importance: Importance.max, 
+        priority: Priority.max,
+        styleInformation: BigTextStyleInformation(body),
+      ),
+    ));
+  }
+
+  Future<void> cancelReminder(int id) async => await _notificationsPlugin.cancel(id);
+
   Future<void> requestPermissions() async {
     if (Platform.isAndroid) {
       final android = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();
+      try { await android?.requestExactAlarmsPermission(); } catch (_) {}
     }
   }
 }
