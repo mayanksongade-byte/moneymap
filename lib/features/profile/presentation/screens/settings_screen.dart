@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
+import 'package:moneymap/core/providers/notification_provider.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/theme/theme_provider.dart';
 
@@ -31,10 +31,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _selectTime(BuildContext context, NotificationProvider provider, bool isMorning) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: isMorning ? provider.morningTime : provider.eveningTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primary,
+              brightness: Theme.of(context).brightness,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      if (isMorning) {
+        provider.setMorningTime(picked);
+      } else {
+        provider.setEveningTime(picked);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final currencyProvider = Provider.of<CurrencyProvider>(context);
+    final notificationProvider = Provider.of<NotificationProvider>(context);
     final colors = context.colors;
 
     return Scaffold(
@@ -114,6 +141,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _showCurrencyDialog(currencyProvider),
           ),
           const SizedBox(height: 12),
+          _buildSectionLabel("Notifications"),
+          _buildGlobalNotificationTile(notificationProvider),
+          if (notificationProvider.notificationsEnabled) ...[
+            const SizedBox(height: 8),
+            _buildReminderTile(
+              context,
+              icon: Icons.wb_sunny_outlined,
+              title: "Morning Reminder",
+              isEnabled: notificationProvider.morningEnabled,
+              time: notificationProvider.morningTime,
+              onToggle: (v) => notificationProvider.setMorningEnabled(v),
+              onTimeTap: () => _selectTime(context, notificationProvider, true),
+            ),
+            _buildReminderTile(
+              context,
+              icon: Icons.nightlight_outlined,
+              title: "Evening Reminder",
+              isEnabled: notificationProvider.eveningEnabled,
+              time: notificationProvider.eveningTime,
+              onToggle: (v) => notificationProvider.setEveningEnabled(v),
+              onTimeTap: () => _selectTime(context, notificationProvider, false),
+            ),
+          ],
+          const SizedBox(height: 12),
           _buildSectionLabel("General"),
           _buildSettingsTile(
             icon: Icons.info_outline_rounded,
@@ -137,6 +188,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
           fontWeight: FontWeight.bold,
           color: context.colors.textDisabled,
           letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlobalNotificationTile(NotificationProvider provider) {
+    final colors = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border.withValues(alpha: 0.3)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            provider.notificationsEnabled ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+            color: AppColors.primary,
+            size: 22,
+          ),
+        ),
+        title: Text(
+          "Global Notifications",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: colors.textPrimary,
+            fontSize: 15,
+          ),
+        ),
+        trailing: Switch(
+          value: provider.notificationsEnabled,
+          onChanged: (v) {
+            HapticFeedback.selectionClick();
+            provider.setNotificationsEnabled(v);
+          },
+          activeColor: AppColors.primary,
         ),
       ),
     );
@@ -184,6 +278,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         trailing: Icon(Icons.chevron_right_rounded, color: colors.textDisabled),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    );
+  }
+
+  Widget _buildReminderTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required bool isEnabled,
+    required TimeOfDay time,
+    required ValueChanged<bool> onToggle,
+    required VoidCallback onTimeTap,
+  }) {
+    final colors = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 22),
+            ),
+            title: Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+                fontSize: 15,
+              ),
+            ),
+            trailing: Switch(
+              value: isEnabled,
+              onChanged: (v) {
+                HapticFeedback.selectionClick();
+                onToggle(v);
+              },
+              activeColor: AppColors.primary,
+            ),
+          ),
+          if (isEnabled) ...[
+            Padding(
+              padding: const EdgeInsets.only(left: 48, right: 16, bottom: 12),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  onTimeTap();
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colors.background,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.border.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Reminder Time",
+                        style: TextStyle(fontSize: 13, color: colors.textSecondary, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        time.format(context),
+                        style: const TextStyle(fontSize: 14, color: AppColors.primary, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -42,12 +42,24 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppAuthProvider()),
-        ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(create: (_) => TransactionProvider()..loadTransactions()..loadMonthlyTransactions()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => BudgetProvider()),
+        ChangeNotifierProvider(create: (_) => BudgetProvider()..loadBudget()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()..loadSettings()),
+        ChangeNotifierProxyProvider2<TransactionProvider, BudgetProvider, NotificationProvider>(
+          create: (_) => NotificationProvider()..loadSettings(),
+          update: (context, transactionProvider, budgetProvider, notificationProvider) {
+            if (notificationProvider != null) {
+              // Automatically check budget whenever data changes
+              notificationProvider.checkBudgetStatus(
+                transactionProvider.monthlyExpense,
+                budgetProvider.monthlyLimit,
+              );
+            }
+            return notificationProvider!;
+          },
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
