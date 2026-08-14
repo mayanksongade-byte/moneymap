@@ -15,17 +15,20 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
+  // IDs
   static const int morningReminderId = 1000;
   static const int eveningReminderId = 1001;
   static const int weeklySummaryId = 1004; 
   static const int budget80Id = 2000;
   static const int budget100Id = 2001;
 
-  static const String actionAddTransaction = 'add_transaction';
-  static const String actionViewBudget = 'view_budget';
-  static const String actionViewStatistics = 'view_statistics';
+  // Action IDs
+  static const String actionAddExpense = 'action_add_expense';
+  static const String actionViewBudget = 'action_view_budget';
+  static const String actionViewStatistics = 'action_view_statistics';
+  static const String actionDismiss = 'action_dismiss';
 
-  static const String channelId = 'moneymap_smart_v16';
+  static const String channelId = 'moneymap_smart_v19';
   static const String channelName = 'MoneyMap Smart Insights';
 
   Future<void> init() async {
@@ -55,18 +58,40 @@ class NotificationService {
 
       await _createNotificationChannel();
     } catch (e) {
-      debugPrint('[NOTIFICATION] init error: $e');
+      if (kDebugMode) print('[NOTIFICATION] init error: $e');
     }
   }
 
   void _handleNotificationTap(NotificationResponse? details) {
     if (details == null) return;
     
-    if (details.actionId == actionViewBudget || details.payload == 'budget') {
-      AppRouter.router.push(AppRoutes.budget);
-    } else if (details.id == weeklySummaryId || details.payload == 'statistics') {
+    final String? actionId = details.actionId;
+    final String? payload = details.payload;
+
+    if (actionId != null) {
+      switch (actionId) {
+        case actionAddExpense:
+          AppRouter.router.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'});
+          break;
+        case actionViewBudget:
+          AppRouter.router.push(AppRoutes.budget);
+          break;
+        case actionViewStatistics:
+          AppRouter.router.push(AppRoutes.statistics);
+          break;
+        case actionDismiss:
+          // Just dismiss, nothing to do here
+          break;
+      }
+      return;
+    }
+
+    // Handle Body Tap
+    if (details.id == weeklySummaryId || payload == 'statistics') {
       AppRouter.router.push(AppRoutes.statistics);
-    } else {
+    } else if (payload == 'budget') {
+      AppRouter.router.push(AppRoutes.budget);
+    } else if (payload == 'morning' || payload == 'evening') {
       AppRouter.router.push(AppRoutes.addTransaction);
     }
   }
@@ -79,6 +104,7 @@ class NotificationService {
       importance: Importance.max,
       enableVibration: true,
       playSound: true,
+      showBadge: true,
     );
     await _notificationsPlugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
@@ -105,6 +131,9 @@ class NotificationService {
             importance: Importance.max,
             priority: Priority.max,
             styleInformation: BigTextStyleInformation(body),
+            actions: [
+              const AndroidNotificationAction(actionViewStatistics, 'VIEW STATS', showsUserInterface: true),
+            ],
           ),
           iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
         ),
@@ -113,7 +142,7 @@ class NotificationService {
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
     } catch (e) {
-      debugPrint('[NOTIFICATION] Weekly Schedule error: $e');
+      if (kDebugMode) print('[NOTIFICATION] Weekly Schedule error: $e');
     }
   }
 
@@ -134,15 +163,33 @@ class NotificationService {
     return scheduledDate;
   }
 
-  Future<void> scheduleMorningReminder(int hour, int minute) async {
-    await _scheduleDaily(morningReminderId, 'Good Morning! ☀️', 'Track your morning expenses now.', hour, minute);
+  Future<void> scheduleMorningReminder(int hour, int minute, {String? title, String? body}) async {
+    await _scheduleDaily(
+      morningReminderId, 
+      title ?? 'Good morning, Mayank 👋', 
+      body ?? 'Start your day with clarity. Track your expenses and stay on top of your money.', 
+      hour, minute, 'morning',
+      actions: [
+        const AndroidNotificationAction(actionAddExpense, 'ADD EXPENSE', showsUserInterface: true),
+        const AndroidNotificationAction(actionDismiss, 'LATER', showsUserInterface: true),
+      ],
+    );
   }
 
-  Future<void> scheduleEveningReminder(int hour, int minute, {String? customBody}) async {
-    await _scheduleDaily(eveningReminderId, 'Day Wrap-up 🌙', customBody ?? 'Record today\'s spending.', hour, minute);
+  Future<void> scheduleEveningReminder(int hour, int minute, {String? title, String? body}) async {
+    await _scheduleDaily(
+      eveningReminderId, 
+      title ?? 'Quick money check 💰', 
+      body ?? 'Before the day ends, take a moment to record today\'s expenses.',
+      hour, minute, 'evening',
+      actions: [
+        const AndroidNotificationAction(actionAddExpense, 'ADD EXPENSE', showsUserInterface: true),
+        const AndroidNotificationAction(actionDismiss, 'DONE', showsUserInterface: true),
+      ],
+    );
   }
 
-  Future<void> _scheduleDaily(int id, String title, String body, int h, int m) async {
+  Future<void> _scheduleDaily(int id, String title, String body, int h, int m, String payload, {List<AndroidNotificationAction>? actions}) async {
     await _notificationsPlugin.cancel(id);
     await _notificationsPlugin.zonedSchedule(
       id, title, body, _nextInstanceOfTime(h, m),
@@ -152,11 +199,13 @@ class NotificationService {
           importance: Importance.max, 
           priority: Priority.max,
           styleInformation: BigTextStyleInformation(body),
+          actions: actions,
         )
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
+      payload: payload,
     );
   }
 
@@ -173,23 +222,6 @@ class NotificationService {
         priority: Priority.max,
         styleInformation: BigTextStyleInformation(body),
         actions: actions,
-      ),
-    ));
-  }
-
-  Future<void> showTransactionAlert({required TransactionModel transaction, required String formattedAmount, required String formattedBalance}) async {
-    final isExpense = transaction.type.toLowerCase() == 'expense';
-    final title = isExpense ? 'Money Out! 💸' : 'Money In! 💰';
-    final body = '${transaction.category}: $formattedAmount\nUpdated Balance: $formattedBalance';
-    
-    final int notificationId = (transaction.id?.hashCode ?? DateTime.now().millisecondsSinceEpoch) & 0x7FFFFFFF;
-
-    await _notificationsPlugin.show(notificationId, title, body, NotificationDetails(
-      android: AndroidNotificationDetails(
-        channelId, channelName, 
-        importance: Importance.max, 
-        priority: Priority.max,
-        styleInformation: BigTextStyleInformation(body),
       ),
     ));
   }

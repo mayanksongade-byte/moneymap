@@ -18,6 +18,7 @@ import '../../features/category/presentation/screens/category_management_screen.
 import '../../features/statistics/presentation/screens/statistics_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/settings_screen.dart';
+import '../../features/notification/presentation/screens/notification_screen.dart';
 
 class AppRouter {
   static final router = GoRouter(
@@ -95,6 +96,10 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        builder: (context, state) => const NotificationScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

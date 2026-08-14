@@ -17,6 +17,7 @@ import 'package:moneymap/features/auth/presentation/providers/app_auth_provider.
 import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
+import 'package:moneymap/core/providers/notification_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -268,9 +269,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ),
       actions: [
-        IconButton(
-          onPressed: () => HapticFeedback.selectionClick(),
-          icon: Icon(Icons.notifications_none_rounded, color: colors.textPrimary, size: 26),
+        Consumer<NotificationProvider>(
+          builder: (context, notificationProvider, _) {
+            final hasUnread = notificationProvider.unreadCount > 0;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    context.push(AppRoutes.notifications);
+                  },
+                  icon: Icon(
+                    Icons.notifications_none_rounded,
+                    color: colors.textPrimary,
+                    size: 26,
+                  ),
+                ),
+                if (hasUnread)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(width: 4),
         GestureDetector(

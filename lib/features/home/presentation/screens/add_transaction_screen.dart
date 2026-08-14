@@ -97,8 +97,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     final provider = Provider.of<TransactionProvider>(context, listen: false);
     final categoryProv = Provider.of<CategoryProvider>(context, listen: false);
-    final notifProv = Provider.of<NotificationProvider>(context, listen: false);
-    final currProv = Provider.of<CurrencyProvider>(context, listen: false);
 
     final categories = categoryProv.byType(_selectedType);
     final category = categories.firstWhere((c) => c.id == _selectedCategoryId);
@@ -126,15 +124,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (mounted) {
       setState(() => _isUploading = false);
       if (success) {
-        // --- TRIGGER INSTANT NOTIFICATION (Point 5) ---
-        if (widget.transactionToEdit == null) {
-          notifProv.notifyTransactionAdded(
-            transaction,
-            formattedAmount: currProv.format(transaction.amount),
-            formattedBalance: currProv.format(provider.balance),
-          );
-        }
-
         if (widget.transactionToEdit != null) {
           Navigator.pop(context, true);
         } else {

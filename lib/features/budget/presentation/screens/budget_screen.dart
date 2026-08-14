@@ -24,7 +24,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
   bool _isSaving = false;
   String? _inputError;
   bool _insightDismissed = false;
-  bool _notifyAt80 = false; // UI-only toggle — wire up to notification settings on the backend
   String _categoryQuery = '';
 
   static const _monthNames = [
@@ -97,7 +96,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     return total;
   }
 
-  // Average spend for a category over the last [months] months (not including the current month in progress).
+  // Average spend for a category over the last [months] months.
   double _avgCategorySpend(TransactionProvider provider, String category, int months) {
     double total = 0;
     int counted = 0;
@@ -405,7 +404,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
     final isOverBudget = limit > 0 && spent > limit;
 
-    // Pacing insight (only meaningful for the current, in-progress month)
+    // Pacing insight (only meaningful for the current month)
     final daysInMonth = _daysInMonth(_selectedMonth);
     final today = DateTime.now().day;
     final daysRemaining = _isCurrentMonth ? (daysInMonth - today + 1).clamp(1, daysInMonth) : 0;
@@ -414,7 +413,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     final dailyAllowance =
     (_isCurrentMonth && limit > 0 && !isOverBudget) ? ((limit - spent) / daysRemaining) : 0.0;
 
-    // Month-over-month comparison + top category (for the smart insight card)
+    // Month-over-month comparison + top category
     final prevMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
     final prevMonthSpend = _monthExpense(transactionProvider, prevMonth);
     final momChangePct = prevMonthSpend > 0 ? ((spent - prevMonthSpend) / prevMonthSpend) * 100 : null;
@@ -439,12 +438,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
     }
     final categoryLimitsExceedBudget = limit > 0 && sumOfCategoryLimits > limit;
 
-    // Rollover suggestion (previous month underspend, current month only)
+    // Rollover suggestion
     final prevMonthUnused = (_isCurrentMonth && limit > 0 && prevMonthSpend > 0 && prevMonthSpend < limit)
         ? (limit - prevMonthSpend)
         : 0.0;
 
-    // Sorted + filtered categories for the list
+    // Sorted + filtered categories
     var expenseCategories = [...allExpenseCategories];
     if (_categoryQuery.trim().isNotEmpty) {
       expenseCategories = expenseCategories
@@ -466,8 +465,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
       return 0;
     });
 
-    // Trailing 6 months of total spend, ending at the real current month — gives trend context
-    // regardless of which month is being browsed.
     final now = DateTime.now();
     final trendMonths = List.generate(6, (i) => DateTime(now.year, now.month - (5 - i)));
     final trendValues = trendMonths.map((m) => _monthExpense(transactionProvider, m)).toList();
@@ -519,7 +516,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   ],
                 ),
               ),
-              // Copy summary shortcut
               GestureDetector(
                 onTap: () => _copySummary(spent, limit, allExpenseCategories, transactionProvider, currencyProvider),
                 child: Container(
@@ -541,7 +537,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ? _buildLoadingSkeleton(colors)
           : Column(
         children: [
-          // ---------- Big, easy-to-tap month selector (moved out of the cramped app bar) ----------
           _buildMonthSelector(colors),
           Expanded(
             child: AnimatedSwitcher(
@@ -552,7 +547,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ---------- Info strip for past months ----------
                     if (!_isCurrentMonth) ...[
                       Container(
                         width: double.infinity,
@@ -575,7 +569,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ---------- Over-budget alert banner ----------
                     if (isOverBudget) ...[
                       Container(
                         width: double.infinity,
@@ -604,7 +597,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ---------- Smart insight card ----------
                     if (!_insightDismissed && (momChangePct != null || topCategory != null)) ...[
                       Container(
                         width: double.infinity,
@@ -652,7 +644,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ---------- Rollover suggestion ----------
                     if (prevMonthUnused > 0) ...[
                       Container(
                         width: double.infinity,
@@ -686,7 +677,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ---------- Hero budget card ----------
                     if (budgetProvider.hasBudget) ...[
                       Container(
                         width: double.infinity,
@@ -854,7 +844,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // ---------- Spending trend (trailing 6 months) ----------
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(20),
@@ -920,41 +909,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-
-                      // ---------- Notify toggle ----------
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: colors.border.withValues(alpha: .15)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.notifications_outlined, size: 18, color: colors.textSecondary),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Notify me at 80% of budget',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colors.textPrimary),
-                              ),
-                            ),
-                            Switch(
-                              value: _notifyAt80,
-                              activeThumbColor: AppColors.primary,
-                              onChanged: (v) {
-                                HapticFeedback.selectionClick();
-                                setState(() => _notifyAt80 = v);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 24),
                     ] else ...[
-                      // ---------- Empty state with CTA ----------
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
@@ -1001,7 +957,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 24),
                     ],
 
-                    // ---------- Set/update overall budget ----------
                     if (_isCurrentMonth) ...[
                       Text(
                         budgetProvider.hasBudget ? 'Update Total Budget' : 'Set Total Monthly Budget',
@@ -1058,7 +1013,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       const SizedBox(height: 28),
                     ],
 
-                    // ---------- Category-wise budgets ----------
                     Row(
                       children: [
                         Expanded(
@@ -1239,7 +1193,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  // ---------- Big month selector with wide tap targets + swipe ----------
   Widget _buildMonthSelector(dynamic colors) {
     return GestureDetector(
       onHorizontalDragEnd: (details) {
@@ -1304,7 +1257,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  // ---------- Skeleton loader ----------
   Widget _buildLoadingSkeleton(dynamic colors) {
     Widget block({double height = 16, double width = double.infinity, double radius = 8}) => Container(
       height: height,
