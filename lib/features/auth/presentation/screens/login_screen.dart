@@ -3,10 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../../core/constants/color_constants.dart';
-import '../../../../core/constants/string_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
-import '../../../../core/theme/app_colors_extension.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -49,6 +47,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     super.dispose();
   }
 
+  void _handleBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      // If we can't pop, it means we might have come from a direct link or guest mode
+      // redirected here. Go to Home instead of getting stuck.
+      context.go(AppRoutes.home);
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
@@ -87,349 +95,356 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     final authProvider = Provider.of<AppAuthProvider>(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 1. Premium Gradient Background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF08111F),
-                  Color(0xFF0D1B2A),
-                  Color(0xFF101827),
-                ],
-              ),
-            ),
-          ),
-
-          // 2. Subtle Radial Glow
-          Positioned(
-            top: size.height * 0.1,
-            right: -size.width * 0.2,
-            child: Container(
-              width: size.width * 0.8,
-              height: size.width * 0.8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                    blurRadius: 100,
-                    spreadRadius: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 3. Main Content
-          SafeArea(
-            child: Column(
-              children: [
-                // Custom App Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => context.pop(),
-                        child: Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                          ),
-                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // 1. Premium Gradient Background
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF08111F),
+                    Color(0xFF0D1B2A),
+                    Color(0xFF101827),
+                  ],
                 ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 10),
-                          
-                          // Header Section
-                          _SlideUpAnimation(
-                            delay: 100,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Welcome Back',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Login to your account',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.1,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Continue managing your finances securely.',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
+              ),
+            ),
+      
+            // 2. Subtle Radial Glow
+            Positioned(
+              top: size.height * 0.1,
+              right: -size.width * 0.2,
+              child: Container(
+                width: size.width * 0.8,
+                height: size.width * 0.8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      blurRadius: 100,
+                      spreadRadius: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      
+            // 3. Main Content
+            SafeArea(
+              child: Column(
+                children: [
+                  // Custom App Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: _handleBack,
+                          child: Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                             ),
+                            child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Colors.white),
                           ),
-
-                          const SizedBox(height: 30),
-
-                          // Hero Illustration
-                          _SlideUpAnimation(
-                            delay: 200,
-                            child: Center(
-                              child: AnimatedBuilder(
-                                animation: _floatController,
-                                builder: (context, child) => Transform.translate(
-                                  offset: Offset(0, 10 * Curves.easeInOutSine.transform(_floatController.value) - 5),
-                                  child: child,
-                                ),
-                                child: Image.asset(
-                                  'assets/images/Welcome_illustration/Welcome.png',
-                                  height: 300,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 40),
-
-                          // Email Field
-                          _SlideUpAnimation(
-                            delay: 300,
-                            child: _GlassTextField(
-                              controller: _emailController,
-                              hintText: 'Email Address',
-                              icon: Icons.email_outlined,
-                              keyboardType: TextInputType.emailAddress,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) return 'Please enter your email';
-                                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                  return 'Please enter a valid email';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // Password Field
-                          _SlideUpAnimation(
-                            delay: 400,
-                            child: _GlassTextField(
-                              controller: _passwordController,
-                              hintText: 'Password',
-                              icon: Icons.lock_outline_rounded,
-                              obscureText: _obscurePassword,
-                              isPassword: true,
-                              onToggleVisibility: () => setState(() => _obscurePassword = !_obscurePassword),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) return 'Please enter your password';
-                                if (value.length < 6) return 'Password must be at least 6 characters';
-                                return null;
-                              },
-                            ),
-                          ),
-
-                          // Forgot Password
-                          _SlideUpAnimation(
-                            delay: 450,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () => context.push(AppRoutes.forgotPassword),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFF3B82F6),
-                                  minimumSize: Size.zero,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                                child: const Text(
-                                  'Forgot Password?',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          // Login Button
-                          _SlideUpAnimation(
-                            delay: 500,
-                            child: _PremiumButton(
-                              text: 'Login',
-                              onPressed: authProvider.isLoading ? null : _handleLogin,
-                              isLoading: authProvider.isLoading,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
-                              ),
-                              trailingIcon: Icons.arrow_forward_rounded,
-                              glowColor: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Divider
-                          _SlideUpAnimation(
-                            delay: 550,
-                            child: Row(
-                              children: [
-                                Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text(
-                                    'OR',
+                        ),
+                      ],
+                    ),
+                  ),
+      
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 10),
+                            
+                            // Header Section
+                            _SlideUpAnimation(
+                              delay: 100,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Welcome Back',
                                     style: TextStyle(
-                                      color: const Color(0xFF94A3B8),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 1.5,
+                                      color: Colors.white.withValues(alpha: 0.7),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                ),
-                                Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Google Button
-                          _SlideUpAnimation(
-                            delay: 600,
-                            child: _PremiumButton(
-                              onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
-                              isLoading: _isGoogleLoading,
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              icon: SvgPicture.asset(
-                                "assets/icons/google.svg",
-                                width: 24,
-                                height: 24,
-                              ),
-                              text: 'Continue with Google',
-                              hasShadow: true,
-                            ),
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Register Link
-                          _SlideUpAnimation(
-                            delay: 650,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  "Don't have an account? ",
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-                                ),
-                                GestureDetector(
-                                  onTap: () => context.push(AppRoutes.register),
-                                  child: const Text(
-                                    'Create Account',
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Login to your account',
                                     style: TextStyle(
-                                      color: Color(0xFF3B82F6),
+                                      color: Colors.white,
+                                      fontSize: 32,
                                       fontWeight: FontWeight.bold,
+                                      height: 1.1,
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Continue managing your finances securely.',
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Footer Links
-                          _SlideUpAnimation(
-                            delay: 700,
-                            child: Column(
-                              children: [
-                                Text(
-                                  'By continuing you agree to our',
-                                  style: TextStyle(color: const Color(0xFF94A3B8), fontSize: 12),
+      
+                            const SizedBox(height: 30),
+      
+                            // Hero Illustration
+                            _SlideUpAnimation(
+                              delay: 200,
+                              child: Center(
+                                child: AnimatedBuilder(
+                                  animation: _floatController,
+                                  builder: (context, child) => Transform.translate(
+                                    offset: Offset(0, 10 * Curves.easeInOutSine.transform(_floatController.value) - 5),
+                                    child: child,
+                                  ),
+                                  child: Image.asset(
+                                    'assets/images/Welcome_illustration/Welcome.png',
+                                    height: 240,
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    _FooterLink(text: 'Terms of Service', onTap: () {}),
-                                    Text('  •  ', style: TextStyle(color: Colors.white.withValues(alpha: 0.2))),
-                                    _FooterLink(text: 'Privacy Policy', onTap: () {}),
-                                  ],
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-
-                          SizedBox(height: bottomPadding + 40),
-                        ],
+      
+                            const SizedBox(height: 40),
+      
+                            // Email Field
+                            _SlideUpAnimation(
+                              delay: 300,
+                              child: _GlassTextField(
+                                controller: _emailController,
+                                hintText: 'Email Address',
+                                icon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) return 'Please enter your email';
+                                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                                    return 'Please enter a valid email';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+      
+                            const SizedBox(height: 20),
+      
+                            // Password Field
+                            _SlideUpAnimation(
+                              delay: 400,
+                              child: _GlassTextField(
+                                controller: _passwordController,
+                                hintText: 'Password',
+                                icon: Icons.lock_outline_rounded,
+                                obscureText: _obscurePassword,
+                                isPassword: true,
+                                onToggleVisibility: () => setState(() => _obscurePassword = !_obscurePassword),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) return 'Please enter your password';
+                                  if (value.length < 6) return 'Password must be at least 6 characters';
+                                  return null;
+                                },
+                              ),
+                            ),
+      
+                            // Forgot Password
+                            _SlideUpAnimation(
+                              delay: 450,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () => context.push(AppRoutes.forgotPassword),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF3B82F6),
+                                    minimumSize: Size.zero,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                  child: const Text(
+                                    'Forgot Password?',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                            ),
+      
+                            const SizedBox(height: 10),
+      
+                            // Login Button
+                            _SlideUpAnimation(
+                              delay: 500,
+                              child: _PremiumButton(
+                                text: 'Login',
+                                onPressed: authProvider.isLoading ? null : _handleLogin,
+                                isLoading: authProvider.isLoading,
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
+                                ),
+                                trailingIcon: Icons.arrow_forward_rounded,
+                                glowColor: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                              ),
+                            ),
+      
+                            const SizedBox(height: 24),
+      
+                            // Divider
+                            _SlideUpAnimation(
+                              delay: 550,
+                              child: Row(
+                                children: [
+                                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Text(
+                                      'OR',
+                                      style: TextStyle(
+                                        color: const Color(0xFF94A3B8),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                                ],
+                              ),
+                            ),
+      
+                            const SizedBox(height: 24),
+      
+                            // Google Button
+                            _SlideUpAnimation(
+                              delay: 600,
+                              child: _PremiumButton(
+                                onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
+                                isLoading: _isGoogleLoading,
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                icon: SvgPicture.asset(
+                                  "assets/icons/google.svg",
+                                  width: 24,
+                                  height: 24,
+                                ),
+                                text: 'Continue with Google',
+                                hasShadow: true,
+                              ),
+                            ),
+      
+                            const SizedBox(height: 32),
+      
+                            // Register Link
+                            _SlideUpAnimation(
+                              delay: 650,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "Don't have an account? ",
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => context.push(AppRoutes.register),
+                                    child: const Text(
+                                      'Create Account',
+                                      style: TextStyle(
+                                        color: Color(0xFF3B82F6),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+      
+                            const SizedBox(height: 32),
+      
+                            // Footer Links
+                            _SlideUpAnimation(
+                              delay: 700,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'By continuing you agree to our',
+                                    style: TextStyle(color: const Color(0xFF94A3B8), fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      _FooterLink(text: 'Terms of Service', onTap: () {}),
+                                      Text('  •  ', style: TextStyle(color: Colors.white.withValues(alpha: 0.2))),
+                                      _FooterLink(text: 'Privacy Policy', onTap: () {}),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+      
+                            SizedBox(height: bottomPadding + 40),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          // Error Message Overlay
-          if (authProvider.error != null)
-            Positioned(
-              top: 60,
-              left: 20,
-              right: 20,
-              child: _SlideUpAnimation(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    authProvider.error!,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+      
+            // Error Message Overlay
+            if (authProvider.error != null)
+              Positioned(
+                top: 60,
+                left: 20,
+                right: 20,
+                child: _SlideUpAnimation(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      authProvider.error!,
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -484,7 +499,6 @@ class _GlassTextFieldState extends State<_GlassTextField> {
     final textTheme = theme.textTheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    // Use theme colors for automatic adaptation
     final Color textColor = textTheme.bodyLarge?.color ?? (isDark ? Colors.white : Colors.black87);
     final Color hintColor = isDark ? Colors.white70 : Colors.grey;
     final Color iconDefaultColor = isDark ? Colors.white70 : Colors.grey.shade700;

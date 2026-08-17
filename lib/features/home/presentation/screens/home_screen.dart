@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -85,9 +84,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _onNavTap(int index) {
     if (index == _currentIndex && index == 0) return;
-    
-    // Navigation is already handled inside AppBottomNav.dart
-    // Just update the index if needed, though HomeScreen usually stays at 0.
     if (mounted) setState(() => _currentIndex = 0);
   }
 
@@ -112,15 +108,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         displacement: 40,
         onRefresh: () async {
           HapticFeedback.mediumImpact();
-          await context.read<TransactionProvider>().refreshTransactions();
-          context.read<BudgetProvider>().loadBudget();
-          if (mounted) setState(() => _refreshTick++);
+          final txProvider = context.read<TransactionProvider>();
+          final budgetProvider = context.read<BudgetProvider>();
+          
+          await txProvider.refreshTransactions();
+          
+          if (mounted) {
+            budgetProvider.loadBudget();
+            setState(() => _refreshTick++);
+          }
         },
         child: Consumer2<TransactionProvider, BudgetProvider>(
           builder: (context, txProvider, budgetProvider, _) {
             final allTransactions = txProvider.transactions;
             final recentTransactions = allTransactions.take(5).toList();
-            final groups = _groupByDay(recentTransactions);
             final isInitialLoad = (txProvider.isLoading || !_settled) && allTransactions.isEmpty;
 
             if (isInitialLoad) {
@@ -141,7 +142,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 12),
-                          // 2. Total Balance Hero Card
+                          
+                          // Guest Warning Banner
+                          if (context.watch<AppAuthProvider>().isGuest) ...[
+                            _buildGuestWarning(context),
+                            const SizedBox(height: 12),
+                          ],
+
                           BalanceCard(
                             key: ValueKey('balance_$_refreshTick'),
                             balance: txProvider.balance,
@@ -150,10 +157,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             lastUpdated: txProvider.lastRefreshedAt,
                           ),
                           const SizedBox(height: 24),
-                          // 3. Financial Snapshot (Cash Flow)
                           _buildCashFlowDashboard(context, txProvider),
                           const SizedBox(height: 24),
-                          // 4. Quick Actions
                           QuickActions(
                             onIncomeTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'income'}),
                             onExpenseTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'}),
@@ -161,20 +166,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             onAnalyticsTap: () => context.push(AppRoutes.statistics),
                           ),
                           const SizedBox(height: 40),
-                          // 5. Spending Overview (REFINED PREMIUM STYLE)
                           _buildAnalyticsSnapshot(context, txProvider),
                           const SizedBox(height: 32),
-                          // 6. Monthly Budget (REFINED PREMIUM STYLE)
                           if (budgetProvider.hasBudget) ...[
                             _buildPremiumBudget(context, budgetProvider, txProvider.monthlyExpense),
                             const SizedBox(height: 32),
                           ],
-                          // 7. Spending Insight Banner (SMALLER & CLOSER TO RECENT ACTIVITY)
                           if (txProvider.monthlyTransactions.isNotEmpty) ...[
                             _buildSpendingInsight(context, txProvider),
                             const SizedBox(height: 12), 
                           ],
-                          // 8. Recent Activity Header
                           if (allTransactions.isNotEmpty)
                             _buildSectionHeader(
                               context,
@@ -222,6 +223,77 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildGuestWarning(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.orange.withValues(alpha: 0.15),
+            Colors.orange.withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.security_update_warning_rounded, color: Colors.orange, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Secure Your Data ⚠️',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                Text(
+                  'Guest data is not synced. Login now to keep it safe.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              // Just push the login screen so user can go back
+              context.push(AppRoutes.login);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ],
       ),
     );
   }
@@ -401,9 +473,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _buildMiniStat('Income', income, AppColors.success),
+                  _buildMiniStat(context, 'Income', income, AppColors.success),
                   const SizedBox(height: 8),
-                  _buildMiniStat('Expense', expense, AppColors.error),
+                  _buildMiniStat(context, 'Expense', expense, AppColors.error),
                 ],
               ),
             ],
@@ -426,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildMiniStat(String label, double amount, Color color) {
+  Widget _buildMiniStat(BuildContext context, String label, double amount, Color color) {
     final colors = context.colors;
     final currency = context.watch<CurrencyProvider>();
     return Row(
@@ -473,9 +545,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
-                  children: [
+                  children: const [
                     Text('This Month', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                    const SizedBox(width: 2),
+                    SizedBox(width: 2),
                     Icon(Icons.chevron_right_rounded, size: 14, color: AppColors.primary),
                   ],
                 ),
@@ -518,7 +590,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // REFINED DONUT CHART
                   SizedBox(
                     width: 120,
                     height: 120,
@@ -551,13 +622,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             shape: BoxShape.circle,
                             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
                           ),
-                          child: Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 24),
+                          child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 24),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 24),
-                  // CHART LEGEND WITH PERCENTAGES
                   Expanded(
                     child: Column(
                       children: sorted.take(3).toList().asMap().entries.map((e) {
@@ -711,7 +781,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ],
           ),
           const SizedBox(height: 20),
-          // CUSTOM GRADIENT PROGRESS BAR
           Stack(
             children: [
               Container(
@@ -911,29 +980,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTransactionTimeline(BuildContext context, _DayGroup group, int groupIndex) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...group.items.map((t) => TransactionCard(
-          id: t.id,
-          category: t.category,
-          note: t.note,
-          amount: t.amount,
-          type: t.type,
-          date: formatRelativeDate(t.date),
-          icon: t.icon,
-          paymentMode: t.paymentMode,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            context.push(AppRoutes.transactionDetails, extra: t);
-          },
-          onDelete: () => context.read<TransactionProvider>().deleteTransaction(t.id!),
-        )),
-      ],
-    );
-  }
-
   Widget _buildEmptyState(BuildContext context) {
     final colors = context.colors;
     return Center(
@@ -973,13 +1019,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildSkeletonLoader(BuildContext context) {
-    final colors = context.colors;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          Row(
+          const Row(
             children: [
               _ShimmerBox(width: 120, height: 14, radius: 6),
             ],
@@ -987,9 +1032,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SizedBox(height: 8),
           const _ShimmerBox(width: 160, height: 24, radius: 8),
           const SizedBox(height: 24),
-          _ShimmerBox(width: double.infinity, height: 190, radius: 24),
+          const _ShimmerBox(width: double.infinity, height: 190, radius: 24),
           const SizedBox(height: 24),
-          _ShimmerBox(width: double.infinity, height: 76, radius: 20),
+          const _ShimmerBox(width: double.infinity, height: 76, radius: 20),
           const SizedBox(height: 24),
           Row(
             children: List.generate(4, (i) {
@@ -1010,10 +1055,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 const _ShimmerBox(width: 44, height: 44, radius: 14),
                 const SizedBox(width: 14),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       _ShimmerBox(width: 100, height: 12, radius: 4),
                       SizedBox(height: 8),
                       _ShimmerBox(width: 70, height: 10, radius: 4),
@@ -1085,21 +1130,6 @@ class _ShimmerBoxState extends State<_ShimmerBox> with SingleTickerProviderState
       },
     );
   }
-}
-
-class _DayGroup {
-  _DayGroup(this.label, this.items);
-  final String label;
-  final List<TransactionModel> items;
-}
-
-List<_DayGroup> _groupByDay(List<TransactionModel> items) {
-  final map = <String, List<TransactionModel>>{};
-  for (final t in items) {
-    final dateKey = formatRelativeDate(t.date);
-    map.putIfAbsent(dateKey, () => []).add(t);
-  }
-  return map.entries.map((e) => _DayGroup(e.key, e.value)).toList();
 }
 
 String formatRelativeDate(DateTime date) {

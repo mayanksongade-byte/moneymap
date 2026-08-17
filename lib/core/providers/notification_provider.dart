@@ -27,6 +27,9 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationHistoryModel> get history => _history;
   int get unreadCount => _history.where((n) => !n.isRead).length;
 
+  // Track which IDs have been handled (added or deleted) so they don't reappear
+  Set<String> _handledIds = {};
+
   // Cache for initial check
   double? _pendingExpense;
   double? _pendingLimit;
@@ -61,6 +64,10 @@ class NotificationProvider extends ChangeNotifier {
       if (_lastBudgetAlertMonth != currentMonth) {
         await _resetBudgetAlerts(currentMonth);
       }
+
+      // Load handled IDs
+      final List<String> handledList = prefs.getStringList('handled_notification_ids') ?? [];
+      _handledIds = handledList.toSet();
 
       await _loadHistory(prefs);
       
@@ -99,13 +106,17 @@ class NotificationProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final String encoded = jsonEncode(_history.map((n) => n.toJson()).toList());
     await prefs.setString('notification_history', encoded);
+    
+    // Also save handled IDs
+    await prefs.setStringList('handled_notification_ids', _handledIds.toList());
   }
 
   void addNotification(NotificationHistoryModel notification) {
-    // Avoid duplicates based on ID if they are generated for the same event
-    if (_history.any((n) => n.id == notification.id)) return;
+    // Avoid adding if it's already in history or has been handled/deleted before
+    if (_handledIds.contains(notification.id)) return;
     
     _history.insert(0, notification);
+    _handledIds.add(notification.id);
     _saveHistory();
     notifyListeners();
   }
@@ -129,12 +140,14 @@ class NotificationProvider extends ChangeNotifier {
 
   void deleteNotification(String id) {
     _history.removeWhere((n) => n.id == id);
+    // Keep it in _handledIds so it doesn't reappear on app restart
     _saveHistory();
     notifyListeners();
   }
 
   void clearHistory() {
     _history.clear();
+    // Note: We don't clear _handledIds here to prevent old daily reminders from popping back
     _saveHistory();
     notifyListeners();
   }
@@ -391,7 +404,8 @@ class NotificationProvider extends ChangeNotifier {
       final morningDt = DateTime(now.year, now.month, now.day, _morningTime.hour, _morningTime.minute);
       if (now.isAfter(morningDt)) {
         final id = 'morning_${now.year}_${now.month}_${now.day}';
-        if (!_history.any((n) => n.id == id)) {
+        // Only add if it's NOT already in handled list
+        if (!_handledIds.contains(id)) {
           addNotification(NotificationHistoryModel(
             id: id,
             type: 'morning_reminder',
@@ -408,7 +422,8 @@ class NotificationProvider extends ChangeNotifier {
       final eveningDt = DateTime(now.year, now.month, now.day, _eveningTime.hour, _eveningTime.minute);
       if (now.isAfter(eveningDt)) {
         final id = 'evening_${now.year}_${now.month}_${now.day}';
-        if (!_history.any((n) => n.id == id)) {
+        // Only add if it's NOT already in handled list
+        if (!_handledIds.contains(id)) {
           addNotification(NotificationHistoryModel(
             id: id,
             type: 'evening_reminder',
