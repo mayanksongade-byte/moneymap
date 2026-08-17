@@ -6,6 +6,7 @@ import '../../../../core/constants/color_constants.dart';
 import '../../../../core/constants/string_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
+import '../../../../core/theme/app_colors_extension.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -164,9 +165,18 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: () => context.pop(),
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
+                      GestureDetector(
+                        onTap: () => context.pop(),
+                        child: Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                          ),
+                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Colors.white),
+                        ),
                       ),
                     ],
                   ),
@@ -233,7 +243,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                                 ),
                                 child: Image.asset(
                                   'assets/images/onbording_illustration/Achieve_goals.png',
-                                  height: 300, // સાઈઝ મોટી કરી
+                                  height: 300,
                                   fit: BoxFit.contain,
                                 ),
                               ),
@@ -456,7 +466,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.error, // Opaque Red
+                    color: AppColors.error,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -468,7 +478,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                   ),
                   child: Text(
                     authProvider.error!,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold), // White Bold Text
+                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                 ),

@@ -216,63 +216,39 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       automaticallyImplyLeading: false,
       backgroundColor: Colors.transparent,
       elevation: 0,
+      scrolledUnderElevation: 0,
       toolbarHeight: 90,
+      titleSpacing: 16,
       title: Row(
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 color: colors.surface,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.shadow.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.border),
               ),
-              child: Icon(Icons.chevron_left, color: colors.textPrimary, size: 28),
+              child: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 18),
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   widget.transactionToEdit != null ? "Edit Transaction" : "Add Transaction",
-                  style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800, fontSize: 20),
+                  style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: -0.5),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   "Track your money smarter",
-                  style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF).withValues(alpha: Theme.of(context).brightness == Brightness.light ? 1.0 : 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.1)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.currency_rupee, size: 14, color: Color(0xFF4F46E5)),
-                const SizedBox(width: 4),
-                Text(
-                  "New",
-                  style: TextStyle(color: const Color(0xFF4F46E5), fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ],
             ),

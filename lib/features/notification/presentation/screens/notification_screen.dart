@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moneymap/core/providers/notification_provider.dart';
 import 'package:moneymap/core/models/notification_history_model.dart';
 import 'package:moneymap/core/theme/app_colors_extension.dart';
+import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
 
 class NotificationScreen extends StatelessWidget {
@@ -18,18 +19,49 @@ class NotificationScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: colors.background,
         elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: Icon(Icons.chevron_left, color: colors.textPrimary, size: 28),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Notifications',
-          style: TextStyle(
-            color: colors.textPrimary,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-          ),
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 90,
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            GestureDetector(
+              onTap: () => context.pop(),
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: colors.textPrimary),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Notifications',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 28,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                  Text(
+                    "Track your activity",
+                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           Consumer<NotificationProvider>(
@@ -57,6 +89,7 @@ class NotificationScreen extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Consumer<NotificationProvider>(
@@ -226,7 +259,7 @@ class _NotificationItem extends StatelessWidget {
             color: notification.isRead ? colors.surface.withValues(alpha: 0.6) : colors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: notification.isRead ? Colors.transparent : colors.primary.withValues(alpha: 0.1),
+              color: notification.isRead ? Colors.transparent : AppColors.primary.withValues(alpha: 0.1),
               width: 1,
             ),
           ),

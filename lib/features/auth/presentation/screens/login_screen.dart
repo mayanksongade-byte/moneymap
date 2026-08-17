@@ -6,6 +6,7 @@ import '../../../../core/constants/color_constants.dart';
 import '../../../../core/constants/string_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
+import '../../../../core/theme/app_colors_extension.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -133,9 +134,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: () => context.pop(),
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
+                      GestureDetector(
+                        onTap: () => context.pop(),
+                        child: Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                          ),
+                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Colors.white),
+                        ),
                       ),
                     ],
                   ),

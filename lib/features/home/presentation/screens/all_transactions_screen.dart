@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/color_constants.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../data/models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
 import '../../../category/presentation/providers/category_provider.dart';
-import 'add_transaction_screen.dart';
+import '../../../../config/routes/app_routes.dart';
 import '../../../../core/providers/currency_provider.dart';
 
 enum _SortBy { newest, oldest, highest, lowest }
@@ -142,7 +143,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                         colors: colors,
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => AddTransactionScreen(transactionToEdit: grouped[dateKey]![i])));
+                          context.push(AppRoutes.transactionDetails, extra: grouped[dateKey]![i]);
                         },
                       ),
                     ),
