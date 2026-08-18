@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/providers/notification_provider.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../../config/routes/app_routes.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -78,7 +80,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
-                Navigator.pop(context);
+                // FIX: Check if we can pop, otherwise go to Home
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go(AppRoutes.home);
+                }
               },
               child: Container(
                 width: 46,

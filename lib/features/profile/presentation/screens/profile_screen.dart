@@ -176,6 +176,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _handleBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -189,171 +197,178 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final months = (diff.inDays / 30).floor();
     final duration = months == 0 ? 'Fresh' : '$months ${months == 1 ? 'month' : 'months'}';
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
         backgroundColor: colors.background,
-        toolbarHeight: 82,
-        titleSpacing: 16,
-        title: Row(
-          children: [
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                Navigator.pop(context);
-              },
-              child: Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: colors.border,
-                  ),
-                ),
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 18,
-                  color: colors.textPrimary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "My Profile",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: colors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    "Personal info & preferences",
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Stack(
-        children: [
-          ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: colors.background,
+          toolbarHeight: 82,
+          titleSpacing: 16,
+          title: Row(
             children: [
-              _HeaderCard(
-                user: user,
-                isGuest: authProvider.isGuest,
-                onEdit: _editProfile,
-                totalTransactions: txProvider.transactions.length,
-                monthlySpent: txProvider.monthlyExpense,
-                memberSince: memberSince,
-                membershipDuration: duration,
-              ),
-              const SizedBox(height: 24),
-              _buildSectionLabel("My Finances"),
-              _MenuTile(
-                icon: Icons.bar_chart_rounded,
-                title: 'Financial Statistics',
-                subtitle: 'View your spending patterns',
-                onTap: () => context.push(AppRoutes.statistics),
-              ),
-              _MenuTile(
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Budget Planning',
-                subtitle: 'Set monthly spending limits',
-                onTap: () => context.push(AppRoutes.budget),
-              ),
-              _MenuTile(
-                icon: Icons.category_outlined,
-                title: 'Category Management',
-                subtitle: 'Customise your categories',
-                onTap: () => context.push(AppRoutes.categoryManagement),
-              ),
-              const SizedBox(height: 12),
-              _buildSectionLabel("Settings"),
-              _MenuTile(
-                icon: Icons.settings_outlined,
-                title: 'App Settings',
-                subtitle: 'Theme, currency & alerts',
-                onTap: () => context.push(AppRoutes.settings),
-              ),
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: colors.border.withValues(alpha: 0.3)),
-                ),
-                child: Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    initiallyExpanded: _exportExpanded,
-                    onExpansionChanged: (val) => setState(() => _exportExpanded = val),
-                    tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    leading: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.file_copy_outlined, color: AppColors.primary, size: 22),
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _handleBack();
+                },
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: colors.border,
                     ),
-                    title: const Text('Export Data', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                    subtitle: Text('Excel & PDF reports', style: TextStyle(fontSize: 12, color: colors.textSecondary)),
-                    trailing: Icon(_exportExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                        child: Row(
-                          children: [
-                            Expanded(child: _buildExportButton(isPdf: false)),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildExportButton(isPdf: true)),
-                          ],
-                        ),
-                      )
-                    ],
+                  ),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: colors.textPrimary,
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout_rounded, size: 20),
-                  label: const Text('Logout Account', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "My Profile",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "Personal info & preferences",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              Center(child: Text('v$_appVersion', style: TextStyle(color: colors.textDisabled, fontSize: 12))),
-              const SizedBox(height: 100),
             ],
           ),
-          if (_isBusy) const Center(child: CircularProgressIndicator()),
-        ],
+        ),
+        body: Stack(
+          children: [
+            ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              children: [
+                _HeaderCard(
+                  user: user,
+                  isGuest: authProvider.isGuest,
+                  onEdit: _editProfile,
+                  totalTransactions: txProvider.transactions.length,
+                  monthlySpent: txProvider.monthlyExpense,
+                  memberSince: memberSince,
+                  membershipDuration: duration,
+                ),
+                const SizedBox(height: 24),
+                _buildSectionLabel("My Finances"),
+                _MenuTile(
+                  icon: Icons.bar_chart_rounded,
+                  title: 'Financial Statistics',
+                  subtitle: 'View your spending patterns',
+                  onTap: () => context.push(AppRoutes.statistics),
+                ),
+                _MenuTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Budget Planning',
+                  subtitle: 'Set monthly spending limits',
+                  onTap: () => context.push(AppRoutes.budget),
+                ),
+                _MenuTile(
+                  icon: Icons.category_outlined,
+                  title: 'Category Management',
+                  subtitle: 'Customise your categories',
+                  onTap: () => context.push(AppRoutes.categoryManagement),
+                ),
+                const SizedBox(height: 12),
+                _buildSectionLabel("Settings"),
+                _MenuTile(
+                  icon: Icons.settings_outlined,
+                  title: 'App Settings',
+                  subtitle: 'Theme, currency & alerts',
+                  onTap: () => context.push(AppRoutes.settings),
+                ),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: colors.border.withValues(alpha: 0.3)),
+                  ),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      initiallyExpanded: _exportExpanded,
+                      onExpansionChanged: (val) => setState(() => _exportExpanded = val),
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.file_copy_outlined, color: AppColors.primary, size: 22),
+                      ),
+                      title: const Text('Export Data', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                      subtitle: Text('Excel & PDF reports', style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                      trailing: Icon(_exportExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                          child: Row(
+                            children: [
+                              Expanded(child: _buildExportButton(isPdf: false)),
+                              const SizedBox(width: 12),
+                              Expanded(child: _buildExportButton(isPdf: true)),
+                            ],
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton.icon(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout_rounded, size: 20),
+                    label: const Text('Logout Account', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Center(child: Text('v$_appVersion', style: TextStyle(color: colors.textDisabled, fontSize: 12))),
+                const SizedBox(height: 100),
+              ],
+            ),
+            if (_isBusy) const Center(child: CircularProgressIndicator()),
+          ],
+        ),
+        bottomNavigationBar: AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap),
       ),
-      bottomNavigationBar: AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap),
     );
   }
 
