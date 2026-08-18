@@ -45,9 +45,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
-    
-    // નેવિગેશન હવે AppBottomNav.dart માં હેન્ડલ થાય છે, 
-    // એટલે અહીં ફરીથી context.push કરવાની જરૂર નથી.
   }
 
   Future<void> _exportData(bool isPdf) async {
@@ -57,11 +54,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    final currencyProvider = context.read<CurrencyProvider>();
+
     setState(() => _isBusy = true);
     try {
       if (isPdf) {
-        // Pass user display name to PDF header
-        await ExportHelper.exportToPdf(transactions, userName: _user?.displayName);
+        await ExportHelper.exportToPdf(
+          transactions, 
+          userName: _user?.displayName,
+          currencySymbol: currencyProvider.currencySymbol,
+        );
       } else {
         await ExportHelper.exportToExcel(transactions);
       }
@@ -181,7 +183,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final txProvider = context.watch<TransactionProvider>();
     final user = _user;
 
-    // Real Data Calculations
     final creationDate = user?.metadata.creationTime ?? DateTime.now();
     final memberSince = DateFormat('MMM yyyy').format(creationDate);
     final diff = DateTime.now().difference(creationDate);
@@ -290,7 +291,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 subtitle: 'Theme, currency & alerts',
                 onTap: () => context.push(AppRoutes.settings),
               ),
-              // Export Box Styled like Settings
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
@@ -380,9 +380,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isPdf ? Colors.red.withOpacity(0.06) : Colors.green.withOpacity(0.06),
+          color: isPdf ? Colors.red.withValues(alpha: 0.06) : Colors.green.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isPdf ? Colors.red.withOpacity(0.12) : Colors.green.withOpacity(0.12)),
+          border: Border.all(color: isPdf ? Colors.red.withValues(alpha: 0.12) : Colors.green.withValues(alpha: 0.12)),
         ),
         child: Row(
           children: [
@@ -428,7 +428,6 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final currency = context.watch<CurrencyProvider>();
     final name = isGuest ? 'Guest User' : (user?.displayName ?? 'User');
     final email = isGuest ? 'guest@moneymap.com' : (user?.email ?? '');
@@ -513,7 +512,6 @@ class _HeaderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 32),
-          // Stats Row with overflow fix
           Row(
             children: [
               Expanded(

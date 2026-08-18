@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/string_constants.dart';
 import '../../../../config/routes/app_routes.dart';
+import '../../../../core/theme/app_colors_extension.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -63,19 +64,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF08111F),
+      backgroundColor: colors.background,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Premium Background
+          // 1. Premium Background with theme colors
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF08111F), Color(0xFF0D1B2A), Color(0xFF101827)],
+                colors: isDark 
+                  ? [const Color(0xFF08111F), const Color(0xFF0D1B2A), const Color(0xFF101827)]
+                  : [colors.background, colors.surface, colors.background],
               ),
             ),
           ),
@@ -84,12 +89,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
           Positioned(
             top: -size.width * 0.2,
             right: -size.width * 0.2,
-            child: _GlowEffect(color: const Color(0xFF2563EB).withOpacity(0.08), size: size.width * 0.8),
+            child: _GlowEffect(color: const Color(0xFF2563EB).withValues(alpha: isDark ? 0.08 : 0.05), size: size.width * 0.8),
           ),
           Positioned(
             bottom: size.height * 0.2,
             left: -size.width * 0.3,
-            child: _GlowEffect(color: const Color(0xFF3B82F6).withOpacity(0.06), size: size.width * 0.9),
+            child: _GlowEffect(color: const Color(0xFF3B82F6).withValues(alpha: isDark ? 0.06 : 0.04), size: size.width * 0.9),
           ),
 
           SafeArea(
@@ -108,9 +113,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(AppStrings.skip, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16, fontWeight: FontWeight.w600)),
+                            Text(
+                              AppStrings.skip, 
+                              style: TextStyle(
+                                color: colors.textSecondary, 
+                                fontSize: 16, 
+                                fontWeight: FontWeight.w600
+                              )
+                            ),
                             const SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white.withOpacity(0.8)),
+                            Icon(Icons.arrow_forward_rounded, size: 16, color: colors.textSecondary),
                           ],
                         ),
                       ),
@@ -135,7 +147,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                           }
                           return Opacity(opacity: value, child: child);
                         },
-                        child: _buildPageContent(index, size),
+                        child: _buildPageContent(index, size, colors),
                       );
                     },
                   ),
@@ -151,7 +163,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                         width: size.width,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(3, (index) => _AnimatedIndicator(isActive: _currentPage == index)),
+                          children: List.generate(3, (index) => _AnimatedIndicator(isActive: _currentPage == index, colors: colors)),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -176,7 +188,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildPageContent(int index, Size size) {
+  Widget _buildPageContent(int index, Size size, AppColorsExtension colors) {
     final page = _pages[index];
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -203,11 +215,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(page.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white, height: 1.2)),
+                Text(
+                  page.title, 
+                  textAlign: TextAlign.center, 
+                  style: TextStyle(
+                    fontSize: 28, 
+                    fontWeight: FontWeight.bold, 
+                    color: colors.textPrimary, 
+                    height: 1.2
+                  )
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: size.width * 0.75,
-                  child: Text(page.description, textAlign: TextAlign.center, maxLines: 4, style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.65), height: 1.6)),
+                  child: Text(
+                    page.description, 
+                    textAlign: TextAlign.center, 
+                    maxLines: 4, 
+                    style: TextStyle(
+                      fontSize: 16, 
+                      color: colors.textSecondary, 
+                      height: 1.6
+                    )
+                  ),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -240,7 +270,8 @@ class _GlowEffect extends StatelessWidget {
 
 class _AnimatedIndicator extends StatelessWidget {
   final bool isActive;
-  const _AnimatedIndicator({required this.isActive});
+  final AppColorsExtension colors;
+  const _AnimatedIndicator({required this.isActive, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -251,11 +282,11 @@ class _AnimatedIndicator extends StatelessWidget {
       width: isActive ? 28 : 8,
       height: 8,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF2563EB) : Colors.white.withOpacity(0.2),
+        color: isActive ? const Color(0xFF2563EB) : colors.textDisabled.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(
-            color: isActive ? const Color(0xFF2563EB).withOpacity(0.3) : Colors.transparent,
+            color: isActive ? const Color(0xFF2563EB).withValues(alpha: 0.3) : Colors.transparent,
             blurRadius: isActive ? 8 : 0,
             spreadRadius: isActive ? 1 : 0,
           )
@@ -293,7 +324,7 @@ class _PremiumActionButtonState extends State<_PremiumActionButton> {
           decoration: BoxDecoration(
             gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF3B82F6)]),
             borderRadius: BorderRadius.circular(18),
-            boxShadow: [BoxShadow(color: const Color(0xFF2563EB).withOpacity(0.35), blurRadius: 20, offset: const Offset(0, 10))],
+            boxShadow: [BoxShadow(color: const Color(0xFF2563EB).withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Stack(
             alignment: Alignment.center,

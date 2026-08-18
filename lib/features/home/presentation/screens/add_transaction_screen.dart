@@ -157,6 +157,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final categories = context.watch<CategoryProvider>().byType(_selectedType);
     final colors = context.colors;
+    final currencySymbol = context.watch<CurrencyProvider>().currencySymbol;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -179,7 +180,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     }),
                   ),
                   const SizedBox(height: 24),
-                  _buildAmountCard(),
+                  _buildAmountCard(currencySymbol),
                   const SizedBox(height: 20),
                   _buildPaymentModeSection(colors),
                   const SizedBox(height: 20),
@@ -258,7 +259,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  Widget _buildAmountCard() {
+  Widget _buildAmountCard(String currencySymbol) {
     final isExpense = _selectedType == 'expense';
     return Container(
       padding: const EdgeInsets.all(24),
@@ -305,9 +306,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      const Text(
-                        "₹ ",
-                        style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                      Text(
+                        "$currencySymbol ",
+                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
                       ),
                       Expanded(
                         child: TextFormField(

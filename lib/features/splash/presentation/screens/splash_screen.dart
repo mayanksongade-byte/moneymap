@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../config/routes/app_routes.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/constants/color_constants.dart';
+import '../../../../core/theme/app_colors_extension.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,27 +20,27 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateToNext() async {
-    // Wait for splash duration
     await Future.delayed(AppConstants.splashDuration);
 
     if (!mounted) return;
 
-    // Check if user is logged in
     final user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
-      // User is logged in - Go to Home using GoRouter
       context.go(AppRoutes.home);
     } else {
-      // User is not logged in - Go to Onboarding using GoRouter
       context.go(AppRoutes.onboarding);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Using dynamic colors from theme instead of hardcoded dark colors
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF08111F), // Matching the new premium theme
+      backgroundColor: colors.background,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -50,24 +50,31 @@ class _SplashScreenState extends State<SplashScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: colors.surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+                border: Border.all(color: colors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.shadow.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.account_balance_wallet_outlined,
                 size: 60,
-                color: Colors.white,
+                color: isDark ? Colors.white : const Color(0xFF2563EB),
               ),
             ),
             const SizedBox(height: 24),
             // App Name
-            const Text(
+            Text(
               AppConstants.appName,
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: colors.textPrimary,
                 letterSpacing: 1,
               ),
             ),
@@ -77,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen> {
               AppConstants.appTagline,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.white.withOpacity(0.6),
+                color: colors.textSecondary,
               ),
             ),
             const SizedBox(height: 64),

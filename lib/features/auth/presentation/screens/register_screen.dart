@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../core/constants/color_constants.dart';
+import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/constants/string_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
-import '../../../../core/theme/app_colors_extension.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -117,21 +116,22 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     final size = MediaQuery.of(context).size;
     final authProvider = Provider.of<AppAuthProvider>(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: colors.background,
       body: Stack(
         children: [
-          // 1. Premium Gradient Background
+          // 1. Premium Background with theme colors
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF08111F),
-                  Color(0xFF0D1B2A),
-                  Color(0xFF101827),
-                ],
+                colors: isDark 
+                  ? [const Color(0xFF08111F), const Color(0xFF0D1B2A), const Color(0xFF101827)]
+                  : [colors.background, colors.surface, colors.background],
               ),
             ),
           ),
@@ -147,7 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                    color: const Color(0xFF2563EB).withValues(alpha: isDark ? 0.1 : 0.05),
                     blurRadius: 100,
                     spreadRadius: 20,
                   ),
@@ -171,11 +171,11 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                           width: 46,
                           height: 46,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                            border: Border.all(color: colors.border),
                           ),
-                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Colors.white),
+                          child: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: colors.textPrimary),
                         ),
                       ),
                     ],
@@ -202,26 +202,26 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                                 Text(
                                   'Create Account',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
+                                    color: colors.textSecondary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'Join MoneyMap Today',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: colors.textPrimary,
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
                                     height: 1.1,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                const Text(
+                                Text(
                                   'Create your secure account and start taking control of your finances.',
                                   style: TextStyle(
-                                    color: Color(0xFF94A3B8),
+                                    color: colors.textSecondary,
                                     fontSize: 16,
                                   ),
                                 ),
@@ -358,20 +358,20 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                             delay: 550,
                             child: Row(
                               children: [
-                                Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                                Expanded(child: Divider(color: colors.divider)),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 16),
                                   child: Text(
                                     'OR',
                                     style: TextStyle(
-                                      color: const Color(0xFF94A3B8),
+                                      color: colors.textSecondary,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 1.5,
                                     ),
                                   ),
                                 ),
-                                Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                                Expanded(child: Divider(color: colors.divider)),
                               ],
                             ),
                           ),
@@ -384,8 +384,8 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                             child: _PremiumButton(
                               onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
                               isLoading: _isGoogleLoading,
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
+                              backgroundColor: isDark ? Colors.white : colors.surface,
+                              foregroundColor: isDark ? Colors.black : colors.textPrimary,
                               icon: SvgPicture.asset(
                                 "assets/icons/google.svg",
                                 width: 24,
@@ -406,7 +406,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               children: [
                                 Text(
                                   "Already have an account? ",
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                                  style: TextStyle(color: colors.textSecondary),
                                 ),
                                 GestureDetector(
                                   onTap: () => context.push(AppRoutes.login),
@@ -431,15 +431,15 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               children: [
                                 Text(
                                   'By creating an account you agree to our',
-                                  style: TextStyle(color: const Color(0xFF94A3B8), fontSize: 12),
+                                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    _FooterLink(text: 'Terms of Service', onTap: () {}),
-                                    Text('  •  ', style: TextStyle(color: Colors.white.withValues(alpha: 0.2))),
-                                    _FooterLink(text: 'Privacy Policy', onTap: () {}),
+                                    _FooterLink(text: 'Terms of Service', onTap: () {}, color: colors.textPrimary),
+                                    Text('  •  ', style: TextStyle(color: colors.divider)),
+                                    _FooterLink(text: 'Privacy Policy', onTap: () {}, color: colors.textPrimary),
                                   ],
                                 ),
                               ],
@@ -455,35 +455,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
               ],
             ),
           ),
-
-          // Error Message Overlay
-          if (authProvider.error != null)
-            Positioned(
-              top: 60,
-              left: 20,
-              right: 20,
-              child: _SlideUpAnimation(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    authProvider.error!,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -502,6 +473,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
     Color color;
     String label;
     double widthFactor;
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
 
     switch (strength) {
       case PasswordStrength.weak:
@@ -529,7 +501,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
           children: [
             Text(
               'Password Strength',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+              style: TextStyle(color: colors.textSecondary, fontSize: 12),
             ),
             Text(
               label,
@@ -542,7 +514,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
           height: 4,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: colors.divider.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(2),
           ),
           child: FractionallySizedBox(
@@ -610,12 +582,8 @@ class _GlassTextFieldState extends State<_GlassTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final Color textColor = isDark ? Colors.white : Colors.black87;
-    final Color hintColor = isDark ? Colors.white70 : Colors.grey;
-    final Color iconDefaultColor = isDark ? Colors.white70 : Colors.grey.shade700;
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -625,10 +593,10 @@ class _GlassTextFieldState extends State<_GlassTextField> {
           decoration: BoxDecoration(
             color: isDark 
                 ? Colors.white.withValues(alpha: _isFocused ? 0.08 : 0.04)
-                : Colors.black.withValues(alpha: 0.05),
+                : colors.surface.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _isFocused ? const Color(0xFF3B82F6).withValues(alpha: 0.5) : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1)),
+              color: _isFocused ? const Color(0xFF3B82F6).withValues(alpha: 0.5) : colors.border,
               width: 1.5,
             ),
             boxShadow: [
@@ -647,17 +615,17 @@ class _GlassTextFieldState extends State<_GlassTextField> {
             keyboardType: widget.keyboardType,
             validator: widget.validator,
             cursorColor: Colors.blue,
-            style: TextStyle(color: textColor, fontSize: 16),
+            style: TextStyle(color: colors.textPrimary, fontSize: 16),
             decoration: InputDecoration(
               hintText: widget.hintText,
-              hintStyle: TextStyle(color: hintColor),
-              prefixIcon: Icon(widget.icon, color: _isFocused ? const Color(0xFF3B82F6) : iconDefaultColor, size: 22),
+              hintStyle: TextStyle(color: colors.textHint),
+              prefixIcon: Icon(widget.icon, color: _isFocused ? const Color(0xFF3B82F6) : colors.textSecondary, size: 22),
               suffixIcon: widget.isPassword
                   ? IconButton(
                       onPressed: widget.onToggleVisibility,
                       icon: Icon(
                         widget.obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: iconDefaultColor,
+                        color: colors.textSecondary,
                         size: 20,
                       ),
                     )
@@ -788,8 +756,9 @@ class _PremiumButtonState extends State<_PremiumButton> {
 class _FooterLink extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final Color color;
 
-  const _FooterLink({required this.text, required this.onTap});
+  const _FooterLink({required this.text, required this.onTap, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -797,8 +766,8 @@ class _FooterLink extends StatelessWidget {
       onTap: onTap,
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: color,
           fontSize: 12,
           fontWeight: FontWeight.w600,
           decoration: TextDecoration.underline,

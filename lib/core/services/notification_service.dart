@@ -4,9 +4,9 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../config/routes/app_router.dart';
 import '../../config/routes/app_routes.dart';
-import '../../features/home/data/models/transaction_model.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -28,7 +28,7 @@ class NotificationService {
   static const String actionViewStatistics = 'action_view_statistics';
   static const String actionDismiss = 'action_dismiss';
 
-  static const String channelId = 'moneymap_smart_v19';
+  static const String channelId = 'moneymap_smart_v20'; // Incrementing version to ensure fresh channel settings
   static const String channelName = 'MoneyMap Smart Insights';
 
   Future<void> init() async {
@@ -80,13 +80,11 @@ class NotificationService {
           AppRouter.router.push(AppRoutes.statistics);
           break;
         case actionDismiss:
-          // Just dismiss, nothing to do here
           break;
       }
       return;
     }
 
-    // Handle Body Tap
     if (details.id == weeklySummaryId || payload == 'statistics') {
       AppRouter.router.push(AppRoutes.statistics);
     } else if (payload == 'budget') {
@@ -230,13 +228,24 @@ class NotificationService {
 
   Future<void> requestPermissions() async {
     if (Platform.isAndroid) {
+      // 1. Notification Permission (Android 13+)
+      await Permission.notification.request();
+
+      // 2. Exact Alarm Permission (Android 14+)
+      if (await Permission.scheduleExactAlarm.isDenied) {
+        await Permission.scheduleExactAlarm.request();
+      }
+
+      // 3. Plugin implementation for request
       final android = _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();
       try { await android?.requestExactAlarmsPermission(); } catch (_) {}
+    } else if (Platform.isIOS) {
+      await _notificationsPlugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
     }
   }
-}
-
-void debugPrint(String message) {
-  if (kDebugMode) print(message);
 }

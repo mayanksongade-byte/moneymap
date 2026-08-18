@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ThemeProvider extends ChangeNotifier {
   static const String _prefsKey = 'theme_mode';
 
-  ThemeMode _themeMode = ThemeMode.light;
+  // Changed default from .light to .system so it follows device theme by default
+  ThemeMode _themeMode = ThemeMode.system;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -21,12 +22,13 @@ class ThemeProvider extends ChangeNotifier {
       case 'dark':
         _themeMode = ThemeMode.dark;
         break;
-      case 'system':
-        _themeMode = ThemeMode.system;
-        break;
       case 'light':
-      default:
         _themeMode = ThemeMode.light;
+        break;
+      case 'system':
+      default:
+        // Defaulting to system mode for new installs
+        _themeMode = ThemeMode.system;
     }
     notifyListeners();
   }

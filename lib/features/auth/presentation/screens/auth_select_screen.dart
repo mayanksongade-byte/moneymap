@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../../../core/constants/color_constants.dart';
+import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/constants/string_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
@@ -46,21 +46,22 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
     final size = MediaQuery.of(context).size;
     final authProvider = Provider.of<AppAuthProvider>(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: colors.background,
       body: Stack(
         children: [
-          // 1. Premium Dark Gradient Background
+          // 1. Premium Background with theme colors
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF08111F),
-                  Color(0xFF0D1B2A),
-                  Color(0xFF101827),
-                ],
+                colors: isDark 
+                  ? [const Color(0xFF08111F), const Color(0xFF0D1B2A), const Color(0xFF101827)]
+                  : [colors.background, colors.surface, colors.background],
               ),
             ),
           ),
@@ -78,7 +79,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                      color: const Color(0xFF2563EB).withValues(alpha: isDark ? 0.12 : 0.08),
                       blurRadius: 100,
                       spreadRadius: 20,
                     ),
@@ -106,24 +107,24 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.05),
+                              color: colors.surface,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.1),
+                                color: colors.border,
                                 width: 1,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.account_balance_wallet_rounded,
                               size: 32,
-                              color: Colors.white,
+                              color: isDark ? Colors.white : const Color(0xFF2563EB),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
+                          Text(
                             'MoneyMap',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: colors.textPrimary,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1,
@@ -140,22 +141,22 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                       delay: 200,
                       child: Column(
                         children: [
-                          const Text(
+                          Text(
                             'Welcome to MoneyMap',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: colors.textPrimary,
                               fontSize: 36,
                               fontWeight: FontWeight.bold,
                               height: 1.1,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             'Take control of your finances with smart expense tracking, powerful insights, and secure money management.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: colors.textSecondary,
                               fontSize: 16,
                               height: 1.5,
                             ),
@@ -193,8 +194,8 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                       child: _PremiumButton(
                         onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
                         isLoading: _isGoogleLoading,
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
+                        backgroundColor: isDark ? Colors.white : colors.surface,
+                        foregroundColor: isDark ? Colors.black : colors.textPrimary,
                         icon: SvgPicture.asset(
                           "assets/icons/google.svg",
                           width: 24,
@@ -212,20 +213,20 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                       delay: 500,
                       child: Row(
                         children: [
-                          Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
+                          Expanded(child: Divider(color: colors.divider)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Text(
                               'OR',
                               style: TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: colors.textSecondary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1.5,
                               ),
                             ),
                           ),
-                          Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                          Expanded(child: Divider(color: colors.divider)),
                         ],
                       ),
                     ),
@@ -255,6 +256,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                         onPressed: () => context.push(AppRoutes.register),
                         isOutline: true,
                         borderColor: const Color(0xFF2563EB),
+                        foregroundColor: isDark ? Colors.white : const Color(0xFF2563EB),
                         text: AppStrings.createAccount,
                       ),
                     ),
@@ -267,13 +269,13 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                       child: TextButton(
                         onPressed: authProvider.isLoading ? null : _handleGuestSignIn,
                         style: TextButton.styleFrom(
-                          foregroundColor: Colors.white.withValues(alpha: 0.7),
+                          foregroundColor: colors.textSecondary,
                         ),
                         child: _isGuestLoading 
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70))
-                          : const Text(
+                          ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: colors.textSecondary))
+                          : Text(
                               '${AppStrings.continueAsGuest} →',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                             ),
                       ),
                     ),
@@ -289,16 +291,16 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                           alignment: WrapAlignment.center,
                           spacing: 4,
                           children: [
-                            const Text(
+                            Text(
                               'By continuing, you agree to our',
-                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                              style: TextStyle(color: colors.textSecondary, fontSize: 12),
                             ),
-                            _ClickableFooterText(text: 'Terms of Service', onTap: () {}),
-                            const Text(
+                            _ClickableFooterText(text: 'Terms of Service', onTap: () {}, color: colors.textPrimary),
+                            Text(
                               'and',
-                              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                              style: TextStyle(color: colors.textSecondary, fontSize: 12),
                             ),
-                            _ClickableFooterText(text: 'Privacy Policy', onTap: () {}),
+                            _ClickableFooterText(text: 'Privacy Policy', onTap: () {}, color: colors.textPrimary),
                           ],
                         ),
                       ),
@@ -308,29 +310,6 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
               ),
             ),
           ),
-          
-          // Error Message Overlay
-          if (authProvider.error != null)
-            Positioned(
-              top: 60,
-              left: 20,
-              right: 20,
-              child: _SlideUpAnimation(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
-                  ),
-                  child: Text(
-                    authProvider.error!,
-                    style: const TextStyle(color: AppColors.error, fontSize: 13),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -479,8 +458,9 @@ class _PremiumButtonState extends State<_PremiumButton> {
 class _ClickableFooterText extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
+  final Color color;
 
-  const _ClickableFooterText({required this.text, required this.onTap});
+  const _ClickableFooterText({required this.text, required this.onTap, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -488,8 +468,8 @@ class _ClickableFooterText extends StatelessWidget {
       onTap: onTap,
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: color,
           fontSize: 12,
           fontWeight: FontWeight.w600,
           decoration: TextDecoration.underline,

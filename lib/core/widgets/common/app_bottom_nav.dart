@@ -25,14 +25,12 @@ class _AppBottomNavState extends State<AppBottomNav>
   AnimationController? _addRef;
   AnimationController? _slideRef;
 
-  // center (+) morph controller
   AnimationController get _addCtrl => _addRef ??= AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 420),
     value: widget.currentIndex == 2 ? 1 : 0,
   );
 
-  // indicator slide controller
   AnimationController get _slideCtrl => _slideRef ??= AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 380),
@@ -85,28 +83,27 @@ class _AppBottomNavState extends State<AppBottomNav>
   }
 
   void _tap(int i) {
-    // If we are already on the current tab, do nothing (except for Add button)
     if (widget.currentIndex == i && i != 2) return;
     
     i == 2 ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
 
-    // Centralized Navigation Logic
+    // Notify parent first
+    widget.onTap(i);
+
     switch (i) {
       case 0:
         context.go(AppRoutes.home);
         break;
       case 1:
-        context.push(AppRoutes.statistics);
+        context.go(AppRoutes.statistics);
         break;
       case 2:
         context.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'});
         break;
       case 3:
-        context.push(AppRoutes.profile);
+        context.go(AppRoutes.profile);
         break;
     }
-
-    widget.onTap(i);
   }
 
   @override
@@ -123,7 +120,6 @@ class _AppBottomNavState extends State<AppBottomNav>
         clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
         children: [
-          // ── Bar Background with Blur
           DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
@@ -152,8 +148,6 @@ class _AppBottomNavState extends State<AppBottomNav>
               ),
             ),
           ),
-
-          // ── Interactive Layer
           SizedBox(
             height: barHeight,
             child: LayoutBuilder(
@@ -170,7 +164,6 @@ class _AppBottomNavState extends State<AppBottomNav>
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Sliding Indicator Pill
                         Positioned(
                           top: 10,
                           bottom: 10,
@@ -186,8 +179,6 @@ class _AppBottomNavState extends State<AppBottomNav>
                             ),
                           ),
                         ),
-
-                        // Active Top Line
                         Positioned(
                           top: 0,
                           left: itemW * pos + (itemW - 24) / 2,
@@ -206,13 +197,12 @@ class _AppBottomNavState extends State<AppBottomNav>
                             ),
                           ),
                         ),
-
                         Row(
                           children: [
                             for (var i = 0; i < _items.length; i++)
                               Expanded(
                                 child: _items[i].isCenter
-                                    ? _center(i, barHeight)
+                                    ? _center(i)
                                     : _item(i, _items[i]),
                               ),
                           ],
@@ -239,39 +229,35 @@ class _AppBottomNavState extends State<AppBottomNav>
       onTapDown: (_) => setState(() => _pressed = index),
       onTapCancel: () => setState(() => _pressed = -1),
       onTapUp: (_) => setState(() => _pressed = -1),
-      child: InkWell(
-        onTap: () => _tap(index),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 120),
-          scale: _pressed == index ? 0.92 : 1.0,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                selected ? item.filled : item.outlined,
+      onTap: () => _tap(index),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 120),
+        scale: _pressed == index ? 0.92 : 1.0,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              selected ? item.filled : item.outlined,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 color: color,
-                size: 24,
+                letterSpacing: 0.5,
               ),
-              const SizedBox(height: 4),
-              Text(
-                item.label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: color,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _center(int index, double barHeight) {
+  Widget _center(int index) {
     final t = Curves.easeOutCubic.transform(_addCtrl.value);
     final pressedScale = _pressed == index ? 0.88 : 1.0;
 
@@ -282,47 +268,43 @@ class _AppBottomNavState extends State<AppBottomNav>
       onTapUp: (_) => setState(() => _pressed = -1),
       onTap: () => _tap(index),
       child: Center(
-        child: Transform.translate(
-          offset: Offset.zero,
-          child: Transform.scale(
-            scale: pressedScale,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        spreadRadius: 0,
-                        offset: Offset.zero,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.primary, Color(0xFF1E40AF)],
+        child: Transform.scale(
+          scale: pressedScale,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      offset: Offset.zero,
                     ),
-                    border: Border.all(color: Colors.white24, width: 1.5),
-                  ),
-                  child: Transform.rotate(
-                    angle: t * 0.7854,
-                    child: const Icon(Icons.add_rounded, size: 28, color: Colors.white),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.primary, Color(0xFF1E40AF)],
+                  ),
+                  border: Border.all(color: Colors.white24, width: 1.5),
+                ),
+                child: Transform.rotate(
+                  angle: t * 0.7854,
+                  child: const Icon(Icons.add_rounded, size: 28, color: Colors.white),
+                ),
+              ),
+            ],
           ),
         ),
       ),

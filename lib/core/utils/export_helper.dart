@@ -8,10 +8,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../../features/home/data/models/transaction_model.dart';
 
 class ExportHelper {
-  // Enhanced cleaning to handle nulls and unsupported characters (ASCII 32-126 only)
   static String _clean(String? text) {
     if (text == null || text.trim().isEmpty) return '-';
-    // Replace common symbols and filter out non-ASCII to prevent PDF crashes
     try {
       final sanitized = text.replaceAll('₹', 'Rs.').split('').where((char) {
         final code = char.codeUnitAt(0);
@@ -62,9 +60,12 @@ class ExportHelper {
     }
   }
 
-  static Future<void> exportToPdf(List<TransactionModel> transactions, {String? userName}) async {
+  static Future<void> exportToPdf(List<TransactionModel> transactions, {String? userName, String currencySymbol = 'Rs.'}) async {
     final pdf = pw.Document();
     final dateFmt = DateFormat('dd MMM yyyy');
+
+    // Handle symbols that might not render in standard PDF fonts
+    final safeSymbol = currencySymbol == '₹' ? 'Rs.' : currencySymbol;
 
     final totalIncome = transactions
         .where((t) => t.type.toLowerCase() == 'income')
@@ -95,7 +96,7 @@ class ExportHelper {
                     pw.Text('MONEYMAP',
                         style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
                     pw.Text('FINANCIAL REPORT',
-                        style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700, letterSpacing: 1.2)),
+                        style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700, letterSpacing: 1.2)),
                   ],
                 ),
                 pw.Column(
@@ -103,7 +104,7 @@ class ExportHelper {
                   children: [
                     pw.Text(dateFmt.format(DateTime.now()),
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('Statement of Account', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text('Statement of Account', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                   ],
                 ),
               ],
@@ -112,7 +113,6 @@ class ExportHelper {
             pw.Divider(thickness: 1, color: PdfColors.grey300),
             pw.SizedBox(height: 15),
 
-            // Prepared For
             pw.Text('USER: ${_clean(userName ?? 'Valued User')}',
                 style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 20),
@@ -121,46 +121,65 @@ class ExportHelper {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                _buildPdfStatCard('TOTAL INCOME', totalIncome, PdfColors.green700),
-                _buildPdfStatCard('TOTAL EXPENSE', totalExpense, PdfColors.red700),
+                _buildPdfStatCard('TOTAL INCOME', totalIncome, PdfColors.green700, safeSymbol),
+                _buildPdfStatCard('TOTAL EXPENSE', totalExpense, PdfColors.red700, safeSymbol),
                 _buildPdfStatCard('NET BALANCE', netBalance, 
-                    netBalance >= 0 ? PdfColors.blue700 : PdfColors.red700),
+                    netBalance >= 0 ? PdfColors.blue700 : PdfColors.red700, safeSymbol),
               ],
             ),
             pw.SizedBox(height: 25),
 
-            // Table of Transactions
             pw.Text('TRANSACTION HISTORY',
                 style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
             pw.SizedBox(height: 8),
-            pw.TableHelper.fromTextArray(
-              context: context,
-              headers: <String>['Date', 'Category', 'Mode', 'Type', 'Amount'],
-              data: transactions.map((t) => <String>[
-                DateFormat('dd/MM/yy').format(t.date),
-                _clean(t.category),
-                _clean(t.paymentMode),
-                t.type.toUpperCase(),
-                t.amount.toStringAsFixed(2),
-              ]).toList(),
-              headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.blue800),
-              cellHeight: 25,
-              cellStyle: const pw.TextStyle(fontSize: 8),
-              headerAlignment: pw.Alignment.centerLeft,
-              cellAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.centerLeft,
-                2: pw.Alignment.centerLeft,
-                3: pw.Alignment.center,
-                4: pw.Alignment.centerRight,
+
+            // Transaction Table with Note and Colors
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+              columnWidths: {
+                0: const pw.FixedColumnWidth(60), // Date
+                1: const pw.FixedColumnWidth(80), // Category
+                2: const pw.FlexColumnWidth(2),   // Note (Flexible)
+                3: const pw.FixedColumnWidth(50), // Mode
+                4: const pw.FixedColumnWidth(60), // Amount
               },
+              children: [
+                // Table Header
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.blue800),
+                  children: [
+                    _buildTableCell('Date', isHeader: true),
+                    _buildTableCell('Category', isHeader: true),
+                    _buildTableCell('Note', isHeader: true),
+                    _buildTableCell('Mode', isHeader: true),
+                    _buildTableCell('Amount', isHeader: true, align: pw.Alignment.centerRight),
+                  ],
+                ),
+                // Table Rows
+                ...transactions.map((t) {
+                  final bool isExpense = t.type.toLowerCase() == 'expense';
+                  final PdfColor bgColor = isExpense ? PdfColors.red50 : PdfColors.green50;
+                  final PdfColor textColor = isExpense ? PdfColors.red700 : PdfColors.green700;
+
+                  return pw.TableRow(
+                    decoration: pw.BoxDecoration(color: bgColor),
+                    children: [
+                      _buildTableCell(DateFormat('dd/MM/yy').format(t.date), textColor: textColor),
+                      _buildTableCell(_clean(t.category), textColor: textColor),
+                      _buildTableCell(_clean(t.note), textColor: textColor),
+                      _buildTableCell(_clean(t.paymentMode), textColor: textColor),
+                      _buildTableCell(t.amount.toStringAsFixed(2), 
+                          textColor: textColor, align: pw.Alignment.centerRight),
+                    ],
+                  );
+                }),
+              ],
             ),
             
             pw.SizedBox(height: 30),
             pw.Divider(thickness: 0.5, color: PdfColors.grey400),
             pw.Text('MoneyMap - Secure Financial Export',
-                style: pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
+                style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
           ];
         },
       ),
@@ -177,7 +196,28 @@ class ExportHelper {
     }
   }
 
-  static pw.Widget _buildPdfStatCard(String title, double amount, PdfColor color) {
+  static pw.Widget _buildTableCell(String text, {
+    bool isHeader = false, 
+    pw.Alignment align = pw.Alignment.centerLeft,
+    PdfColor? textColor,
+  }) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Container(
+        alignment: align,
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: isHeader ? 9 : 8,
+            fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+            color: isHeader ? PdfColors.white : (textColor ?? PdfColors.black),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildPdfStatCard(String title, double amount, PdfColor color, String currencySymbol) {
     return pw.Container(
       width: 155,
       padding: const pw.EdgeInsets.all(10),
@@ -191,7 +231,7 @@ class ExportHelper {
         children: [
           pw.Text(title, style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
           pw.SizedBox(height: 4),
-          pw.Text('Rs. ${amount.toStringAsFixed(2)}',
+          pw.Text('$currencySymbol ${amount.toStringAsFixed(2)}',
               style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: color)),
         ],
       ),

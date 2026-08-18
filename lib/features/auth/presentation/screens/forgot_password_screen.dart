@@ -77,17 +77,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final authProvider = Provider.of<AppAuthProvider>(context);
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: colors.background,
       body: Stack(
         children: [
-          // 1. Premium Dark Gradient Background
+          // 1. Premium Background with theme colors
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF08111F), Color(0xFF0D1B2A), Color(0xFF101827)],
+                colors: isDark 
+                  ? [const Color(0xFF08111F), const Color(0xFF0D1B2A), const Color(0xFF101827)]
+                  : [colors.background, colors.surface, colors.background],
               ),
             ),
           ),
@@ -103,7 +108,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                    color: const Color(0xFF2563EB).withValues(alpha: isDark ? 0.1 : 0.05),
                     blurRadius: 100,
                     spreadRadius: 20,
                   ),
@@ -126,11 +131,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
                           width: 46,
                           height: 46,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
+                            color: colors.surface,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                            border: Border.all(color: colors.border),
                           ),
-                          child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                          child: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 18),
                         ),
                       ),
                     ],
@@ -144,7 +149,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
                     child: AnimatedSize(
                       duration: const Duration(milliseconds: 500),
                       curve: Curves.easeInOut,
-                      child: _isSuccess ? _buildSuccessState() : _buildFormState(authProvider),
+                      child: _isSuccess ? _buildSuccessState(colors, isDark) : _buildFormState(authProvider, colors),
                     ),
                   ),
                 ),
@@ -156,7 +161,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
     );
   }
 
-  Widget _buildFormState(AppAuthProvider authProvider) {
+  Widget _buildFormState(AppAuthProvider authProvider, AppColorsExtension colors) {
     return Form(
       key: _formKey,
       child: Column(
@@ -172,26 +177,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
                 Text(
                   'Forgot Password',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: colors.textSecondary,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Reset your password',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     height: 1.1,
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   "Enter your registered email address and we'll send you a secure password reset link.",
                   style: TextStyle(
-                    color: Color(0xFF94A3B8),
+                    color: colors.textSecondary,
                     fontSize: 16,
                     height: 1.5,
                   ),
@@ -265,7 +270,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
                 onPressed: () => context.pop(),
                 child: Text(
                   "Back to Login",
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontWeight: FontWeight.w600),
+                  style: TextStyle(color: colors.textSecondary, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -275,7 +280,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
     );
   }
 
-  Widget _buildSuccessState() {
+  Widget _buildSuccessState(AppColorsExtension colors, bool isDark) {
     return Column(
       children: [
         const SizedBox(height: 60),
@@ -283,9 +288,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
           child: Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              border: Border.all(color: colors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               children: [
@@ -302,28 +314,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   "Check your Email",
-                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: colors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   "Password reset link has been sent successfully to:",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16, height: 1.5),
+                  style: TextStyle(color: colors.textSecondary, fontSize: 16, height: 1.5),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _emailController.text.trim(),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 32),
                 _PremiumButton(
                   text: "Open Gmail",
                   onPressed: _launchGmail,
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  foregroundColor: Colors.white,
-                  icon: const Icon(Icons.mail_outline_rounded, color: Colors.white),
+                  backgroundColor: colors.surfaceVariant,
+                  foregroundColor: colors.textPrimary,
+                  icon: Icon(Icons.mail_outline_rounded, color: colors.textPrimary),
                 ),
               ],
             ),
@@ -343,7 +355,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
   }
 }
 
-// Re-using common components for consistency
 class _GlassTextField extends StatefulWidget {
   final TextEditingController controller;
   final String hintText;
@@ -389,17 +400,18 @@ class _GlassTextFieldState extends State<_GlassTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<AppColorsExtension>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color textColor = isDark ? Colors.white : Colors.black87;
-    final Color hintColor = isDark ? Colors.white70 : Colors.grey;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: _isFocused ? 0.08 : 0.04),
+        color: isDark 
+            ? Colors.white.withValues(alpha: _isFocused ? 0.08 : 0.04)
+            : colors.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _isFocused ? const Color(0xFF3B82F6).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.1),
+          color: _isFocused ? const Color(0xFF3B82F6).withValues(alpha: 0.5) : colors.border,
           width: 1.5,
         ),
         boxShadow: [
@@ -417,11 +429,11 @@ class _GlassTextFieldState extends State<_GlassTextField> {
         obscureText: widget.obscureText,
         keyboardType: widget.keyboardType,
         validator: widget.validator,
-        style: TextStyle(color: textColor, fontSize: 16),
+        style: TextStyle(color: colors.textPrimary, fontSize: 16),
         decoration: InputDecoration(
           hintText: widget.hintText,
-          hintStyle: TextStyle(color: hintColor),
-          prefixIcon: Icon(widget.icon, color: _isFocused ? const Color(0xFF3B82F6) : Colors.white.withValues(alpha: 0.4), size: 22),
+          hintStyle: TextStyle(color: colors.textHint),
+          prefixIcon: Icon(widget.icon, color: _isFocused ? const Color(0xFF3B82F6) : colors.textSecondary, size: 22),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
