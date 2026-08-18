@@ -7,17 +7,99 @@ import '../../../home/data/models/category_model.dart';
 import '../providers/category_provider.dart';
 
 const List<String> _emojiChoices = [
-  '🍔', '🚗', '🛒', '🏠', '💊', '🎮', '📚', '💡', '💰', '📈',
-  '📊', '🎁', '✈️', '🐾', '🎬', '👕', '☕', '⚽', '🎵', '📌',
-  '💳', '🏦', '📱', '⚡', '🧾', '🏥', '🚕', '⛽', '🧳', '👶',
-  '🎉', '🛠️', '💼', '🏋️', '🎯', '🎂', '🧑‍🍳', '🚌', '🏨', '🩺',
+  // --- FOOD & DRINK (100+) ---
+  '🍔', '🍟', '🍕', '🌭', '🥪', '🌮', '🌯', '🥗', '🥘', '🍲', '🍜', '🍣', '🍱', '🍛', '🥟', '🍳', 
+  '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🥨', '🥐', '🥯', '🍞', '🥖', '🧀', '🍿', '🧂', '🍦', '🍧', 
+  '🍨', '🍩', '🍪', '🎂', '🍰', '🧁', '🥧', '🍫', '🍬', '🍭', '🍮', '🍯', '🍼', '🥛', '☕', '🍵', 
+  '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🥤', '🧃', '🧋', '🍎', '🍐', '🍊', '🍋', 
+  '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', 
+  '🥬', '🥒', '🌶️', '🫑', '🌽', '🥕', '🧄', '🧅', ' potatoes', '🍠', '🥜', '🌰', '🍄', '🥐', '🥯', '🍞',
+
+  // --- TRAVEL & TRANSPORT (80+) ---
+  '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🚚', '🚛', '🚜', '🛵', '🏍️', '🚲',
+  '🛴', '🛹', '🛶', '⛵', '🛥️', '🛳️', '⛴️', '🚢', '✈️', '🛫', '🛬', '🪂', '🚁', '🚀', '🛰️', '🛸',
+  '🚉', '🚆', '🚇', '🚞', '🚋', '🚍', '🚖', '⛽', '🚥', '🚦', '🚧', '⚓', '🎡', '🎢', '🎠', '🏗️',
+  '🌁', '🗼', '🗽', '🗾', '🎑', '⛰️', '🌋', '🗻', '🏕️', '🏖️', '🏜️', '🏝️', '🏙️', '🏘️', '🏟️', '🏛️',
+
+  // --- SHOPPING & STYLE (80+) ---
+  '🛒', '🛍️', '🎁', '📦', '🏷️', '👟', '👞', '👠', '👡', '👢', '🧤', '🧣', '🧢', '👒', '🎩', '👕', 
+  '👖', '👗', '👘', '🧥', '👝', '👛', '👜', '💼', '🎒', '🕶️', '👓', '💍', '💎', '💄', '🧴', '🧵', 
+  '🧶', '💈', '🌂', '👗', '👚', '👜', '👞', '💄', '👔', '👕', '🧦', '👠', '👢', '💍', '👒', '💄',
+  '🪞', '🪒', '🧴', '🧼', '🧺', '🛍️', '💳', '🏧', '💵', '💰', '👗', '👖', '👘', '🥻', '🧣', '🧤',
+
+  // --- HOUSEHOLD & BILLS (80+) ---
+  '🏠', '🏡', '🏘️', '🏚️', '🏢', '🏗️', '🛋️', '🪑', '🛏️', '🚪', '🖼️', '🪞', '🪟', '💡', '⚡', '🚿', 
+  '🛀', '🛁', '🪠', '🧼', '🧹', '🧺', '🧻', '🕯️', '🔥', '💧', '🌡️', '🔧', '🔨', '🛠️', '🔩', '⚙️', 
+  '⛓️', '🪛', '🧲', '🪵', '🪴', '🌿', '☘️', '🍀', '🍂', '🍁', '🍄', '🌾', '💐', '🌷', '🌹', '🥀', 
+  '🌺', '🌸', '🌼', '🌻', '🌞', '🌝', '🌛', '🌚', '🌑', '🌒', '🌓', '🌔', '🌕', '🐾', '🐈', '🐕',
+
+  // --- HEALTH & CARE (60+) ---
+  '💊', '💉', '🩺', '🏥', '🚑', '🩸', '🩹', '🦴', '🦷', '👓', '🧠', '🫁', '🫀', '🧘', '🧖', '💆',
+  '🏋️', '🏃', '🚴', '🏊', '🚶', '🤸', '🤰', '🤱', '👴', '👵', '👶', '🧑', '🧼', '🧴', '🚿', '🛀',
+  '💈', '💇', '🧖', '💆', '🪒', '🪥', '🦷', '🚿', '🛁', '🚽', '🧻', '😷', '🏥', '🚑', '🚑', '🩺',
+
+  // --- ENTERTAINMENT & LEISURE (80+) ---
+  '🎮', '🎲', '🧩', '🃏', '♟️', '🎳', '🎯', '🎰', '🎬', '📽️', '📺', '📷', '📹', '📻', '🎙️', '🎵', 
+  '🎶', '🎼', '🎹', '🎸', '🎷', '🎺', '🎻', '🎤', '🎧', '🎨', '🖌️', '🖍️', '🧵', '🧶', '🎟️', '🎫', 
+  '🎭', '🎪', '🩰', '🎷', '🎸', '🎺', '🎻', '🥁', '🪘', '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', 
+  '🏉', '🎱', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', ' fishing', '🤿',
+
+  // --- FINANCE & OFFICE (80+) ---
+  '💰', '💸', '💵', '💴', '💶', '💷', '🪙', '💳', '🏧', '🏦', '💹', '💱', '💲', '📈', '📉', '📊',
+  '💼', '📁', '📂', '📅', '🗓️', '🗒️', '📜', '📄', '📰', '🗞️', '📓', '📔', '📒', '📕', '📖', '📗',
+  '⚖️', '💎', '🔐', '🔑', '🗝️', '🖋️', '✒️', '🖊️', '🖌️', '🖍️', '📝', '✏️', '📎', '📌', '📍', '🖇️',
+  '💻', '🖥️', '⌨️', '🖱️', '🖨️', '💾', '💿', '📀', '📱', '☎️', '📞', '📟', '📠', '🔌', '🔋', '📡',
+
+  // --- OCCASIONS & EVENTS (60+) ---
+  '🎁', '🎈', '🎉', '🎊', '🎂', '🍰', '🧁', '🥧', '🥂', '🍻', '🍾', '💍', '💎', '💒', '⛪', '🕌', 
+  '🕋', '🕍', '⛩️', '🎆', '🎇', '🧨', '🏮', '🎐', '🧧', '🧿', '🎀', '🪄', '🔮', '🧿', '🎋', '🎍', 
+  '🍃', '🍂', '🍁', '🍄', '🐚', '🦀', '🦞', '🦐', '🦑', '🐙', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋',
+
+  // --- NATURE & WEATHER (50+) ---
+  '☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌧️', '⛈️', '🌩️', '🌨️', '❄️', '☃️', '⛄', '🌬️', '💨', '🌪️',
+  '🌈', '💧', '💦', '🌊', '🌡️', '🌙', '🌟', '⭐', '✨', '🌍', '🌎', '🌏', '🪐', '🌑', '🌓', '🌔',
+  '🌵', '🎄', '🌲', '🌳', '🌴', '🌱', '🌿', '☘️', '🍀', '🎋', '🍃', '🍂', '🍁', '🍄', '🐚', '🪵',
 ];
 
 const List<String> _colorChoices = [
-  '#EF4444', '#F59E0B', '#10B981', '#3B82F6',
-  '#8B5CF6', '#EC4899', '#6B7280', '#14B8A6',
-  '#F97316', '#EAB308', '#22C55E', '#06B6D4',
-  '#6366F1', '#D946EF', '#84CC16', '#F43F5E',
+  // --- REDS ---
+  '#EF4444', '#F87171', '#DC2626', '#B91C1C', '#991B1B', '#FEE2E2', '#FECACA', '#FCA5A5', '#7F1D1D', '#450A0A',
+  // --- ORANGES ---
+  '#F97316', '#FB923C', '#EA580C', '#C2410C', '#9A3412', '#FFEDD5', '#FED7AA', '#FDBA74', '#7C2D12', '#431407',
+  // --- YELLOWS ---
+  '#F59E0B', '#FBBF24', '#D97706', '#B45309', '#92400E', '#FEF3C7', '#FDE68A', '#FCD34D', '#78350F', '#451A03',
+  // --- AMBERS/GOLD ---
+  '#EAB308', '#FACC15', '#CA8A04', '#A16207', '#854D0E', '#FEF9C3', '#FEF08A', '#FDE047', '#713F12', '#422006',
+  // --- LIMES ---
+  '#84CC16', '#A3E635', '#65A30D', '#4D7C0F', '#3F6212', '#F7FEE7', '#ECFCCB', '#D9F99D', '#365314', '#1A2E05',
+  // --- GREENS ---
+  '#22C55E', '#4ADE80', '#16A34A', '#15803D', '#14532D', '#DCFCE7', '#BBF7D0', '#86EFAC', '#166534', '#064E3B',
+  // --- EMERALDS ---
+  '#10B981', '#34D399', '#059669', '#047857', '#065F46', '#ECFDF5', '#D1FAE5', '#A7F3D0', '#064E3B', '#022C22',
+  // --- TEALS ---
+  '#14B8A6', '#2DD4BF', '#0D9488', '#0F766E', '#134E4A', '#F0FDFA', '#CCFBFE', '#99F6E4', '#115E59', '#042F2E',
+  // --- CYANS ---
+  '#06B6D4', '#22D3EE', '#0891B2', '#0E7490', '#155E75', '#ECFEFF', '#CFFAFE', '#A5F3FC', '#164E63', '#083344',
+  // --- SKIES ---
+  '#0EA5E9', '#38BDF8', '#0284C7', '#0369A1', '#075985', '#F0F9FF', '#E0F2FE', '#BAE6FD', '#0C4A6E', '#082F49',
+  // --- BLUES ---
+  '#3B82F6', '#60A5FA', '#2563EB', '#1D4ED8', '#1E40AF', '#EFF6FF', '#DBEAFE', '#BFDBFE', '#1E3A8A', '#172554',
+  // --- INDIGOS ---
+  '#6366F1', '#818CF8', '#4F46E5', '#4338CA', '#3730A3', '#EEF2FF', '#E0E7FF', '#C7D2FE', '#312E81', '#1E1B4B',
+  // --- VIOLETS ---
+  '#8B5CF6', '#A78BFA', '#7C3AED', '#6D28D9', '#5B21B6', '#F5F3FF', '#EDE9FE', '#DDD6FE', '#4C1D95', '#2E1065',
+  // --- PURPLES ---
+  '#A855F7', '#C084FC', '#9333EA', '#7E22CE', '#6B21A8', '#FAF5FF', '#F3E8FF', '#E9D5FF', '#581C87', '#3B0764',
+  // --- FUCHSIAS ---
+  '#D946EF', '#E879F9', '#C026D3', '#A21CAF', '#86198F', '#FDF4FF', '#FAE8FF', '#F5D0FE', '#701A75', '#4A044E',
+  // --- PINKS ---
+  '#EC4899', '#F472B6', '#DB2777', '#BE185D', '#9D174D', '#FDF2F8', '#FCE7F3', '#FBCFE8', '#831843', '#500724',
+  // --- ROSES ---
+  '#F43F5E', '#FB7185', '#E11D48', '#BE123C', '#9F1239', '#FFF1F2', '#FFE4E6', '#FECDD3', '#881337', '#4C0519',
+  // --- GRAYS ---
+  '#6B7280', '#9CA3AF', '#4B5563', '#374151', '#1F2937', '#F9FAFB', '#F3F4F6', '#E5E7EB', '#111827', '#030712',
+  // --- SLATES ---
+  '#64748B', '#94A3B8', '#475569', '#334155', '#1E293B', '#F8FAFC', '#F1F5F9', '#E2E8F0', '#0F172A', '#020617',
 ];
 
 Color _hexColor(String hex) {
@@ -47,7 +129,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // animation listener = smooth pill/FAB follow while swiping
     _tabController.animation?.addListener(() {
       if (mounted) setState(() {});
     });
@@ -65,8 +146,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
 
   double get _tabPos => _tabController.animation?.value ?? 0;
   int get _activeIndex => _tabPos.round();
-
-  // ---------------- actions ----------------
 
   Future<void> _openActions(BuildContext context, CategoryModel category) async {
     HapticFeedback.selectionClick();
@@ -174,8 +253,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
     );
   }
 
-  // ---------------- grid ----------------
-
   Widget _buildGrid(BuildContext context, String type) {
     final colors = context.colors;
     final provider = context.watch<CategoryProvider>();
@@ -229,8 +306,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
     );
   }
 
-  // ---------------- build ----------------
-
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -245,7 +320,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // ---------- header ----------
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
@@ -291,7 +365,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
               ),
             ),
 
-            // ---------- search ----------
             AnimatedSize(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
@@ -325,7 +398,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
 
             const SizedBox(height: 14),
 
-            // ---------- sliding segmented control ----------
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
@@ -493,8 +565,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
     );
   }
 }
-
-// ---------------- small widgets ----------------
 
 class _IconBtn extends StatelessWidget {
   final IconData icon;
@@ -686,8 +756,6 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ---------------- add sheet ----------------
-
 class _AddCategorySheet extends StatefulWidget {
   final String defaultType;
   const _AddCategorySheet({required this.defaultType});
@@ -795,7 +863,6 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                             fontSize: 12.5, color: colors.textSecondary)),
                     const SizedBox(height: 16),
 
-                    // live preview
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
                       padding: const EdgeInsets.all(14),
@@ -882,14 +949,14 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                     _Label('Icon', trailing: _selectedEmoji),
                     const SizedBox(height: 8),
                     SizedBox(
-                      height: 108,
+                      height: 250,
                       child: GridView.builder(
                         physics: const BouncingScrollPhysics(),
                         gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 8,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
+                          crossAxisCount: 6,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
                         ),
                         itemCount: _emojiChoices.length,
                         itemBuilder: (_, i) {
@@ -907,28 +974,28 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                                 color: selected
                                     ? previewColor.withValues(alpha: .16)
                                     : colors.surfaceVariant,
-                                borderRadius: BorderRadius.circular(11),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: selected
                                       ? previewColor
                                       : Colors.transparent,
-                                  width: 1.6,
+                                  width: 1.8,
                                 ),
                               ),
                               child: Text(emoji,
-                                  style: const TextStyle(fontSize: 18)),
+                                  style: const TextStyle(fontSize: 26)),
                             ),
                           );
                         },
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
                     const _Label('Color'),
                     const SizedBox(height: 8),
                     Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: _colorChoices.map((hex) {
                         final selected = hex == _selectedColor;
                         final color = _hexColor(hex);
@@ -939,8 +1006,8 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 160),
-                            width: selected ? 38 : 34,
-                            height: selected ? 38 : 34,
+                            width: selected ? 36 : 28,
+                            height: selected ? 36 : 28,
                             decoration: BoxDecoration(
                               color: color,
                               shape: BoxShape.circle,
@@ -949,7 +1016,7 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                                 BoxShadow(
                                     color:
                                     color.withValues(alpha: .55),
-                                    blurRadius: 12)
+                                    blurRadius: 14)
                               ]
                                   : null,
                             ),
@@ -961,29 +1028,31 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
             ),
 
-            // sticky save button
             Padding(
               padding: EdgeInsets.fromLTRB(
                   20, 8, 20, 20 + MediaQuery.of(context).padding.bottom * .2),
               child: SizedBox(
                 width: double.infinity,
-                height: 54,
+                height: 56,
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 180),
                   opacity: _valid ? 1 : .5,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       gradient: LinearGradient(colors: [
                         previewColor,
                         Color.lerp(previewColor, Colors.black, .2)!,
                       ]),
+                      boxShadow: _valid ? [
+                        BoxShadow(color: previewColor.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))
+                      ] : null,
                     ),
                     child: ElevatedButton(
                       onPressed: (_isSaving || !_valid) ? null : _save,
@@ -993,19 +1062,19 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                         shadowColor: Colors.transparent,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
+                            borderRadius: BorderRadius.circular(18)),
                       ),
                       child: _isSaving
                           ? const SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 22,
+                          height: 22,
                           child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                          : const Text('Add Category',
+                              color: Colors.white, strokeWidth: 2.5))
+                          : const Text('Create Category',
                           style: TextStyle(
                               color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15)),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16)),
                     ),
                   ),
                 ),
@@ -1030,12 +1099,16 @@ class _Label extends StatelessWidget {
       children: [
         Text(text,
             style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: colors.textSecondary)),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: colors.textPrimary)),
         if (trailing != null) ...[
-          const SizedBox(width: 6),
-          Text(trailing!, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: colors.surfaceVariant, borderRadius: BorderRadius.circular(6)),
+            child: Text(trailing!, style: const TextStyle(fontSize: 16)),
+          ),
         ],
       ],
     );
@@ -1058,20 +1131,21 @@ class _SegToggle extends StatelessWidget {
           onTap: () => onChanged(value),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
               color: active
                   ? c.withValues(alpha: .12)
                   : colors.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                  color: active ? c : Colors.transparent, width: 1.4),
+                  color: active ? c : Colors.transparent, width: 1.6),
             ),
             child: Text(label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: active ? c : colors.textSecondary,
-                    fontWeight: FontWeight.w700)),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15)),
           ),
         ),
       );
