@@ -6,7 +6,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 enum AuthStatus { authenticated, unverified, unauthenticated, guest }
 
 class AppAuthProvider extends ChangeNotifier {
-  // Direct instances to avoid GetIt initialization issues
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
@@ -24,7 +23,9 @@ class AppAuthProvider extends ChangeNotifier {
   bool get isGuest => _user != null && _user!.isAnonymous;
 
   AppAuthProvider() {
-    _authSubscription = _auth.authStateChanges().listen((user) {
+    // Listening to userChanges() instead of authStateChanges() 
+    // to capture profile updates like displayName immediately.
+    _authSubscription = _auth.userChanges().listen((user) {
       _user = user;
       if (user == null) {
         _status = AuthStatus.unauthenticated;
@@ -37,6 +38,15 @@ class AppAuthProvider extends ChangeNotifier {
       }
       notifyListeners();
     });
+  }
+
+  Future<void> refreshUser() async {
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      await currentUser.reload();
+      _user = _auth.currentUser;
+      notifyListeners();
+    }
   }
 
   Future<bool> continueAsGuest() async {

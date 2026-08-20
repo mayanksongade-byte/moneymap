@@ -90,8 +90,20 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         _passwordController.text.trim(),
         _nameController.text.trim(),
       );
-      if (success && mounted) {
+
+      if (!mounted) return;
+
+      if (success) {
         context.go(AppRoutes.verifyEmail);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.error ?? 'Registration failed. Please try again.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
       }
     }
   }
@@ -100,14 +112,25 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     setState(() => _isGoogleLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.signInWithGoogle();
-    if (mounted) setState(() => _isGoogleLoading = false);
+    
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
 
-    if (success && context.mounted) {
+    if (success) {
       if (authProvider.status == AuthStatus.unverified) {
         context.go(AppRoutes.verifyEmail);
       } else {
         context.go(AppRoutes.home);
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.error ?? 'Google sign-in failed.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -242,7 +265,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                                   child: child,
                                 ),
                                 child: Image.asset(
-                                  'assets/images/onbording_illustration/Achieve_goals.png',
+                                  'assets/images/Welcome_illustration/Welcome.png',
                                   height: 300,
                                   fit: BoxFit.contain,
                                 ),

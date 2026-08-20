@@ -1,4 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -53,7 +56,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
       backgroundColor: colors.background,
       body: Stack(
         children: [
-          // 1. Premium Background with theme colors
+          // 1. Premium Background
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -66,9 +69,9 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
             ),
           ),
 
-          // 2. Subtle Radial Glow behind Hero
+          // 2. Subtle Radial Glow
           Positioned(
-            top: size.height * 0.25,
+            top: size.height * 0.1,
             left: 0,
             right: 0,
             child: Center(
@@ -97,46 +100,9 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
-                    
-                    // Logo Section
-                    FadeTransition(
-                      opacity: _fadeController,
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colors.surface,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: colors.border,
-                                width: 1,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.account_balance_wallet_rounded,
-                              size: 32,
-                              color: isDark ? Colors.white : const Color(0xFF2563EB),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'MoneyMap',
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    const SizedBox(height: 20), // Reduced height to keep text at the very top
 
-                    const SizedBox(height: 40),
-
-                    // Welcome Title & Subtitle
+                    // Welcome Title & Subtitle - Now at the very top
                     _SlideUpAnimation(
                       delay: 200,
                       child: Column(
@@ -188,7 +154,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
 
                     const SizedBox(height: 40),
 
-                    // Google Button (Primary CTA)
+                    // Google Button
                     _SlideUpAnimation(
                       delay: 400,
                       child: _PremiumButton(
@@ -208,7 +174,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
 
                     const SizedBox(height: 24),
 
-                    // Elegant Divider
+                    // Divider
                     _SlideUpAnimation(
                       delay: 500,
                       child: Row(
@@ -233,7 +199,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
 
                     const SizedBox(height: 24),
 
-                    // Login Button (Secondary)
+                    // Login Button
                     _SlideUpAnimation(
                       delay: 600,
                       child: _PremiumButton(
@@ -249,7 +215,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
 
                     const SizedBox(height: 16),
 
-                    // Create Account Button (Outline)
+                    // Create Account Button
                     _SlideUpAnimation(
                       delay: 700,
                       child: _PremiumButton(
@@ -282,7 +248,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
 
                     const SizedBox(height: 32),
 
-                    // Footer Links
+                    // Footer
                     _SlideUpAnimation(
                       delay: 900,
                       child: Padding(

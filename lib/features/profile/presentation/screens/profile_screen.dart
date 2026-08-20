@@ -86,60 +86,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final nameCtrl = TextEditingController(text: _user?.displayName ?? '');
     final colors = context.colors;
+    String? nameError;
 
     final newName = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Edit Profile',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: colors.textPrimary)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Your Name',
-                  filled: true,
-                  fillColor: colors.background,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-                ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
-                child: const Text('Save Changes'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Edit Profile',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: colors.textPrimary)),
+                  const SizedBox(height: 8),
+                  Text('Max 10 characters allowed', 
+                      style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameCtrl,
+                    maxLength: 10,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(10),
+                    ],
+                    onChanged: (val) {
+                      if (nameError != null && val.trim().isNotEmpty) {
+                        setModalState(() => nameError = null);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Your Name',
+                      errorText: nameError,
+                      counterText: "",
+                      filled: true,
+                      fillColor: colors.background,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      final text = nameCtrl.text.trim();
+                      if (text.isEmpty) {
+                        setModalState(() => nameError = "Name cannot be empty");
+                        return;
+                      }
+                      Navigator.pop(ctx, text);
+                    },
+                    child: const Text('Save Changes'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
 
     if (newName != null && newName.isNotEmpty && newName != _user?.displayName) {
       setState(() => _isBusy = true);
       try {
-        await _user!.updateDisplayName(newName);
-        await FirebaseFirestore.instance.collection('users').doc(_user!.uid).set({
-          'name': newName,
-        }, SetOptions(merge: true));
-        await _user!.reload();
-        _showToast('Profile updated!');
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          // 1. Update Firebase Auth Profile (Immediate UI update)
+          await user.updateDisplayName(newName);
+          
+          // 2. Update Firestore (Sync with DB)
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'name': newName,
+            'displayName': newName,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          
+          // 3. Force reload and refresh provider
+          await user.reload();
+          await authProvider.refreshUser();
+
+          _showToast('Profile updated!');
+        }
       } catch (e) {
-        _showToast('Error: $e', isError: true);
+        _showToast('Failed to update profile.', isError: true);
+        debugPrint("Update Profile Error: $e");
       } finally {
         if (mounted) setState(() => _isBusy = false);
       }
@@ -167,6 +206,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showToast(String msg, {bool isError = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),

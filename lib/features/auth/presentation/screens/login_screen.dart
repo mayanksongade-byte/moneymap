@@ -62,12 +62,25 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      if (success && mounted) {
+      
+      if (!mounted) return;
+
+      if (success) {
         if (authProvider.status == AuthStatus.unverified) {
           context.go(AppRoutes.verifyEmail);
         } else {
           context.go(AppRoutes.home);
         }
+      } else {
+        // Show error message if login fails
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.error ?? 'Login failed. Please check your credentials.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
       }
     }
   }
@@ -76,14 +89,26 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     setState(() => _isGoogleLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.signInWithGoogle();
-    if (mounted) setState(() => _isGoogleLoading = false);
+    
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
 
-    if (success && context.mounted) {
+    if (success) {
       if (authProvider.status == AuthStatus.unverified) {
         context.go(AppRoutes.verifyEmail);
       } else {
         context.go(AppRoutes.home);
       }
+    } else {
+      // Show error message if Google sign-in fails
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.error ?? 'Google sign-in failed.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -225,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                   ),
                                   child: Image.asset(
                                     'assets/images/Welcome_illustration/Welcome.png',
-                                    height: 240,
+                                    height: 300,
                                     fit: BoxFit.contain,
                                   ),
                                 ),

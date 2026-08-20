@@ -70,22 +70,20 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
-  image_path: "assets/images/Lable_Logo/Lable.png"
+  image_path: "assets/images/Lable_Logo/app_icon_fit_512.png"
   # Adaptive Icons સેટિંગ્સ (જેથી લોગો પ્રોપર ફિટ થાય)
   adaptive_icon_background: "#0F172A"
-  adaptive_icon_foreground: "assets/images/Lable_Logo/Lable.png"
+  adaptive_icon_foreground: "assets/images/Lable_Logo/app_icon_adaptive_foreground_512.png"
 
 # --- ૨. Splash Screen (એપ શરૂ થતી વખતનો લોગો) ---
 flutter_native_splash:
   color: "#0F172A"
   image: assets/images/Lable_Logo/Lable.png
-  # લોગોને સેન્ટરમાં રાખવા માટે
   android_gravity: center
   android_12:
-    image: assets/images/Lable_Logo/Lable.png
-    icon_background_color: "#0F172A" # આનાથી લોગોની આસપાસનું સર્કલ છુપાઈ જશે
+    image: assets/images/Lable_Logo/app_icon_adaptive_foreground_512.png
+    icon_background_color: "#0F172A"
   fullscreen: true
-
 flutter:
   uses-material-design: true
   assets:
