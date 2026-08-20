@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/core/widgets/common/app_bottom_nav.dart';
 import 'package:moneymap/features/home/data/models/category_model.dart';
@@ -14,6 +15,7 @@ import 'package:moneymap/features/category/presentation/providers/category_provi
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/providers/currency_provider.dart';
 import '../../../../config/routes/app_routes.dart';
+import '../../../../core/utils/export_helper.dart';
 
 enum StatsPeriod { week, month, year, all }
 
@@ -53,7 +55,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   int _touchedIndex = -1;
   int _touchedModeIndex = -1;
   StatsPeriod _period = StatsPeriod.month;
-  bool _showIncome = false; // false = expense breakdown, true = income
+  bool _showIncome = false; 
+  bool _isBusy = false;
 
   AnimationController? _ctrl;
   AnimationController get _c => _ctrl ??= AnimationController(
@@ -159,6 +162,114 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     _c.forward(from: 0);
   }
 
+  void _showExportOptions() {
+    final colors = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colors.border.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Export Financial Report', 
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colors.textPrimary)),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: _buildExportBtn(isPdf: false, ctx: ctx)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildExportBtn(isPdf: true, ctx: ctx)),
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExportBtn({required bool isPdf, required BuildContext ctx}) {
+    final colors = context.colors;
+    return InkWell(
+      onTap: () {
+        Navigator.pop(ctx);
+        _exportData(isPdf);
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: isPdf ? Colors.red.withOpacity(0.06) : Colors.green.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isPdf ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1)),
+        ),
+        child: Column(
+          children: [
+            Icon(isPdf ? Icons.picture_as_pdf_rounded : Icons.table_chart_rounded,
+                 color: isPdf ? Colors.red : Colors.green, size: 36),
+            const SizedBox(height: 10),
+            Text(isPdf ? 'Download PDF' : 'Download Excel',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: colors.textPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportData(bool isPdf) async {
+    final provider = context.read<TransactionProvider>();
+    if (provider.transactions.isEmpty) {
+      _showToast('No transactions found to export', isError: true);
+      return;
+    }
+
+    final currency = context.read<CurrencyProvider>();
+    final user = FirebaseAuth.instance.currentUser;
+
+    setState(() => _isBusy = true);
+    try {
+      if (isPdf) {
+        await ExportHelper.exportToPdf(
+          provider.transactions,
+          userName: user?.displayName,
+          currencySymbol: currency.currencySymbol,
+        );
+      } else {
+        await ExportHelper.exportToExcel(provider.transactions);
+      }
+      _showToast('Export successful!');
+    } catch (e) {
+      _showToast('Export failed: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
   // ---------------- build ----------------
 
   @override
@@ -237,136 +348,145 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     return Scaffold(
       backgroundColor: context.colors.background,
       extendBody: true,
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: context.colors.surface,
-        onRefresh: _refresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            _appBar(),
-            SliverToBoxAdapter(
-              child: AnimatedBuilder(
-                animation: _c,
-                builder: (context, _) {
-                  final t = Curves.easeOutCubic.transform(_c.value);
-                  if (loading) return _skeleton();
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _periodSelector(),
-                        const SizedBox(height: 16),
-                        _stagger(
-                            0, t, _hero(currency, balance, income, expense, expDelta, t)),
-                        const SizedBox(height: 12),
-                        _stagger(
-                          1,
-                          t,
-                          Row(children: [
-                            Expanded(
-                                child: _miniCard(
-                                    currency,
-                                    'Income',
-                                    income * t,
-                                    AppColors.success,
-                                    Icons.south_west_rounded,
-                                    prevIncome)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: _miniCard(
-                                    currency,
-                                    'Expense',
-                                    expense * t,
-                                    AppColors.error,
-                                    Icons.north_east_rounded,
-                                    prevExpense)),
-                          ]),
-                        ),
-                        const SizedBox(height: 14),
-                        _stagger(
-                          2,
-                          t,
-                          _insightStrip(
-                              currency, savingsRate, sorted, avgPerDay, txCount),
-                        ),
-                        const SizedBox(height: 26),
-                        _stagger(3, t, _trendCard(currency, spendBuckets, t)),
-                        const SizedBox(height: 32),
-
-                        if (!_showIncome && sortedModes.isNotEmpty) ...[
-                          _stagger(4, t, _sectionTitle('Payment Methods')),
-                          const SizedBox(height: 12),
-                          _stagger(5, t, _paymentModeSection(currency, sortedModes, modeCounts, expense, t)),
-                          const SizedBox(height: 32),
-                        ],
-
-                        _stagger(
-                          6,
-                          t,
-                          Row(children: [
-                            _sectionTitle(_showIncome
-                                ? 'Income Sources'
-                                : 'Where Money Goes'),
-                            const Spacer(),
-                            _typeToggle(),
-                          ]),
-                        ),
-                        const SizedBox(height: 12),
-                        if (hasData)
-                          _stagger(7, t, _donutCard(currency, sorted, sliceTotal, t))
-                        else
-                          _emptyState(),
-                        if (hasData) ...[
-                          const SizedBox(height: 32),
-                          Row(children: [
-                            _sectionTitle('Breakdown'),
-                            const Spacer(),
-                            Text('${sorted.length} categories',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: context.colors.textSecondary)),
-                          ]),
-                          const SizedBox(height: 12),
-                          ...sorted.asMap().entries.map((e) {
-                            final i = e.key;
-                            final entry = e.value;
-                            final pct = sliceTotal == 0
-                                ? 0.0
-                                : entry.value / sliceTotal * 100;
-                            final cat = _resolveCategory(entry.key, i);
-                            return _stagger(
-                              8 + i,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: AppColors.primary,
+            backgroundColor: context.colors.surface,
+            onRefresh: _refresh,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                _appBar(),
+                SliverToBoxAdapter(
+                  child: AnimatedBuilder(
+                    animation: _c,
+                    builder: (context, _) {
+                      final t = Curves.easeOutCubic.transform(_c.value);
+                      if (loading) return _skeleton();
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _periodSelector(),
+                            const SizedBox(height: 16),
+                            _stagger(
+                                0, t, _hero(currency, balance, income, expense, expDelta, t)),
+                            const SizedBox(height: 12),
+                            _stagger(
+                              1,
                               t,
-                              _categoryRow(
-                                currency,
-                                rank: i + 1,
-                                icon: cat.icon,
-                                name: entry.key,
-                                amount: entry.value,
-                                percentage: pct,
-                                color: _catColor(cat),
-                                progress: t,
-                                selected: _touchedIndex == i,
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  setState(() => _touchedIndex =
-                                      _touchedIndex == i ? -1 : i);
-                                },
-                              ),
-                            );
-                          }),
-                        ],
-                      ],
-                    ),
-                  );
-                },
-              ),
+                              Row(children: [
+                                Expanded(
+                                    child: _miniCard(
+                                        currency,
+                                        'Income',
+                                        income * t,
+                                        AppColors.success,
+                                        Icons.south_west_rounded,
+                                        prevIncome)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                    child: _miniCard(
+                                        currency,
+                                        'Expense',
+                                        expense * t,
+                                        AppColors.error,
+                                        Icons.north_east_rounded,
+                                        prevExpense)),
+                              ]),
+                            ),
+                            const SizedBox(height: 14),
+                            _stagger(
+                              2,
+                              t,
+                              _insightStrip(
+                                  currency, savingsRate, sorted, avgPerDay, txCount),
+                            ),
+                            const SizedBox(height: 26),
+                            _stagger(3, t, _trendCard(currency, spendBuckets, t)),
+                            const SizedBox(height: 32),
+
+                            if (!_showIncome && sortedModes.isNotEmpty) ...[
+                              _stagger(4, t, _sectionTitle('Payment Methods')),
+                              const SizedBox(height: 12),
+                              _stagger(5, t, _paymentModeCompact(currency, sortedModes, modeCounts, expense, t)),
+                              const SizedBox(height: 32),
+                            ],
+
+                            _stagger(
+                              6,
+                              t,
+                              Row(children: [
+                                _sectionTitle(_showIncome
+                                    ? 'Income Sources'
+                                    : 'Where Money Goes'),
+                                const Spacer(),
+                                _typeToggle(),
+                              ]),
+                            ),
+                            const SizedBox(height: 12),
+                            if (hasData)
+                              _stagger(7, t, _donutCard(currency, sorted, sliceTotal, t))
+                            else
+                              _emptyState(),
+                            if (hasData) ...[
+                              const SizedBox(height: 32),
+                              Row(children: [
+                                _sectionTitle('Breakdown'),
+                                const Spacer(),
+                                Text('${sorted.length} categories',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: context.colors.textSecondary)),
+                              ]),
+                              const SizedBox(height: 12),
+                              ...sorted.asMap().entries.map((e) {
+                                final i = e.key;
+                                final entry = e.value;
+                                final pct = sliceTotal == 0
+                                    ? 0.0
+                                    : entry.value / sliceTotal * 100;
+                                final cat = _resolveCategory(entry.key, i);
+                                return _stagger(
+                                  8 + i,
+                                  t,
+                                  _categoryRow(
+                                    currency,
+                                    rank: i + 1,
+                                    icon: cat.icon,
+                                    name: entry.key,
+                                    amount: entry.value,
+                                    percentage: pct,
+                                    color: _catColor(cat),
+                                    progress: t,
+                                    selected: _touchedIndex == i,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _touchedIndex =
+                                          _touchedIndex == i ? -1 : i);
+                                    },
+                                  ),
+                                );
+                              }),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          if (_isBusy)
+            Container(
+              color: Colors.black26,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+        ],
       ),
       bottomNavigationBar:
           AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap),
@@ -433,7 +553,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               ],
             ),
           ),
-          _iconBtn(Icons.refresh_rounded, _refresh),
+          _iconBtn(Icons.file_download_outlined, _showExportOptions),
         ],
       ),
     );
@@ -1015,7 +1135,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         ],
       );
 
-  Widget _paymentModeSection(CurrencyProvider currency, List<MapEntry<String, double>> sorted, Map<String, int> counts, double total, double t) {
+  Widget _paymentModeCompact(CurrencyProvider currency, List<MapEntry<String, double>> sorted, Map<String, int> counts, double total, double t) {
     final selected = _touchedModeIndex >= 0 && _touchedModeIndex < sorted.length
         ? sorted[_touchedModeIndex]
         : null;

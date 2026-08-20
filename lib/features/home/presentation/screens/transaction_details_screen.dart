@@ -212,7 +212,7 @@ class TransactionDetailsScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Record?'),
-        content: const Text('This action cannot be undone.'),
+        content: const Text('Are you sure you want to remove this record?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: AppColors.error))),
@@ -222,8 +222,31 @@ class TransactionDetailsScreen extends StatelessWidget {
 
     if (confirmed == true && context.mounted) {
       final provider = Provider.of<TransactionProvider>(context, listen: false);
-      await provider.deleteTransaction(transaction.id!);
-      if (context.mounted) Navigator.pop(context);
+      final messenger = ScaffoldMessenger.of(context);
+
+      provider.finalizeAllPending();
+      messenger.removeCurrentSnackBar();
+
+      provider.stageDeletion(transaction);
+      Navigator.pop(context);
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Transaction deleted'),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'UNDO',
+            onPressed: () {
+              provider.undoDeletion(transaction.id!);
+            },
+          ),
+        ),
+      ).closed.then((reason) {
+        if (reason != SnackBarClosedReason.action) {
+          provider.finalizeDeletion(transaction.id!);
+        }
+      });
     }
   }
 }

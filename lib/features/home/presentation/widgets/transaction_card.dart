@@ -47,27 +47,6 @@ class TransactionCard extends StatelessWidget {
     }
   }
 
-  Future<bool?> _showDeleteConfirm(BuildContext context) async {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Transaction?', style: TextStyle(fontWeight: FontWeight.w900)),
-        content: const Text('Are you sure you want to remove this record?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: TextStyle(color: context.colors.textSecondary, fontWeight: FontWeight.w700)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w900)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final currency = context.watch<CurrencyProvider>();
@@ -161,7 +140,7 @@ class TransactionCard extends StatelessWidget {
         child: Dismissible(
           key: Key(id!),
           direction: DismissDirection.endToStart,
-          confirmDismiss: (dir) => _showDeleteConfirm(context),
+          confirmDismiss: (dir) => Future.value(true),
           onDismissed: (dir) => onDelete?.call(),
           background: Container(
             alignment: Alignment.centerRight,

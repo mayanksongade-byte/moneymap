@@ -16,6 +16,8 @@ class TransactionProvider extends ChangeNotifier {
   bool _isMonthlyLoading = false;
   String? _error;
 
+  final Map<String, TransactionModel> _pendingDeletions = {};
+
   double _totalIncome = 0;
   double _totalExpense = 0;
 
@@ -26,8 +28,11 @@ class TransactionProvider extends ChangeNotifier {
   String _searchQuery = '';
   String _typeFilter = 'all';
 
-  List<TransactionModel> get transactions => _transactions;
-  List<TransactionModel> get monthlyTransactions => _monthlyTransactions;
+  List<TransactionModel> get transactions =>
+      _transactions.where((t) => t.id == null || !_pendingDeletions.containsKey(t.id)).toList();
+  List<TransactionModel> get monthlyTransactions =>
+      _monthlyTransactions.where((t) => t.id == null || !_pendingDeletions.containsKey(t.id)).toList();
+
   bool get isLoading => _isLoading;
   bool get isMonthlyLoading => _isMonthlyLoading;
   String? get error => _error;
@@ -42,7 +47,7 @@ class TransactionProvider extends ChangeNotifier {
   String get typeFilter => _typeFilter;
 
   List<TransactionModel> get filteredTransactions {
-    return _transactions.where((t) {
+    return transactions.where((t) {
       final matchesType = _typeFilter == 'all' || t.type.toLowerCase() == _typeFilter.toLowerCase();
       final query = _searchQuery.trim().toLowerCase();
       final matchesSearch = query.isEmpty ||
@@ -172,6 +177,47 @@ class TransactionProvider extends ChangeNotifier {
     }
   }
 
+  void stageDeletion(TransactionModel transaction) {
+    if (transaction.id == null) return;
+    if (_pendingDeletions.containsKey(transaction.id)) return;
+    _pendingDeletions[transaction.id!] = transaction;
+    _calculateTotals();
+    _calculateMonthlyTotals();
+    notifyListeners();
+  }
+
+  void undoDeletion(String id) {
+    if (_pendingDeletions.containsKey(id)) {
+      _pendingDeletions.remove(id);
+      _calculateTotals();
+      _calculateMonthlyTotals();
+      notifyListeners();
+    }
+  }
+
+  Future<void> finalizeDeletion(String id) async {
+    final transaction = _pendingDeletions.remove(id);
+    if (transaction != null) {
+      // Also remove from local list to avoid flicker before stream updates
+      _transactions.removeWhere((t) => t.id == id);
+      _monthlyTransactions.removeWhere((t) => t.id == id);
+      try {
+        await _service.deleteTransaction(id);
+      } catch (e) {
+        _error = e.toString();
+      }
+      notifyListeners();
+    }
+  }
+
+  void finalizeAllPending() {
+    if (_pendingDeletions.isEmpty) return;
+    final ids = _pendingDeletions.keys.toList();
+    for (final id in ids) {
+      finalizeDeletion(id);
+    }
+  }
+
   Future<bool> deleteTransaction(String id) async {
     try {
       await _service.deleteTransaction(id);
@@ -207,6 +253,7 @@ class TransactionProvider extends ChangeNotifier {
     double income = 0;
     double expense = 0;
     for (final t in _transactions) {
+      if (t.id != null && _pendingDeletions.containsKey(t.id)) continue;
       if (t.type.toLowerCase() == 'income') income += t.amount;
       else if (t.type.toLowerCase() == 'expense') expense += t.amount;
     }
@@ -218,6 +265,7 @@ class TransactionProvider extends ChangeNotifier {
     double income = 0;
     double expense = 0;
     for (final t in _monthlyTransactions) {
+      if (t.id != null && _pendingDeletions.containsKey(t.id)) continue;
       if (t.type.toLowerCase() == 'income') income += t.amount;
       else if (t.type.toLowerCase() == 'expense') expense += t.amount;
     }
@@ -227,7 +275,7 @@ class TransactionProvider extends ChangeNotifier {
 
   Map<String, double> getExpenseByCategory() {
     final Map<String, double> summary = {};
-    for (var t in _transactions.where((t) => t.type.toLowerCase() == 'expense')) {
+    for (var t in transactions.where((t) => t.type.toLowerCase() == 'expense')) {
       summary[t.category] = (summary[t.category] ?? 0) + t.amount;
     }
     return summary;
@@ -235,7 +283,7 @@ class TransactionProvider extends ChangeNotifier {
 
   Map<String, double> getMonthlyExpenseByCategory() {
     final Map<String, double> summary = {};
-    for (var t in _monthlyTransactions.where((t) => t.type.toLowerCase() == 'expense')) {
+    for (var t in monthlyTransactions.where((t) => t.type.toLowerCase() == 'expense')) {
       summary[t.category] = (summary[t.category] ?? 0) + t.amount;
     }
     return summary;

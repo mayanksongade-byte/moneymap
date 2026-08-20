@@ -94,6 +94,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'Good Evening 🌙';
   }
 
+  Future<void> _handleDelete(TransactionModel t) async {
+    final provider = context.read<TransactionProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Finalize any existing pending deletions and hide current snackbar
+    provider.finalizeAllPending();
+    messenger.removeCurrentSnackBar();
+
+    // Optimistic UI removal via staging
+    provider.stageDeletion(t);
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Transaction deleted'),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () {
+            provider.undoDeletion(t.id!);
+          },
+        ),
+      ),
+    ).closed.then((reason) {
+      if (reason != SnackBarClosedReason.action) {
+        provider.finalizeDeletion(t.id!);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -214,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             HapticFeedback.lightImpact();
                             context.push(AppRoutes.transactionDetails, extra: t);
                           },
-                          onDelete: () => context.read<TransactionProvider>().deleteTransaction(t.id!),
+                          onDelete: () => _handleDelete(t),
                         );
                       },
                     ),
