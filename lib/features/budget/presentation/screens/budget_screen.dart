@@ -334,6 +334,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('$categoryName limit removed'),
+                                  duration: const Duration(seconds: 4),
                                   action: SnackBarAction(
                                     label: 'Undo',
                                     onPressed: () => budgetProvider.setCategoryLimit(categoryName, removedValue),

@@ -23,12 +23,14 @@ class BudgetProvider extends ChangeNotifier {
   void loadBudget() {
     _subscription?.cancel();
     _isLoading = true;
+    _error = null;
     notifyListeners();
 
     _subscription = _service.getBudget().listen(
           (budget) {
         _budget = budget;
         _isLoading = false;
+        _error = null;
         notifyListeners();
       },
       onError: (e) {

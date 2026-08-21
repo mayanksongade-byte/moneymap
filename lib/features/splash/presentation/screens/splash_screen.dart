@@ -81,20 +81,29 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   void _navigateToNext() async {
     if (!mounted) return;
     
-    final user = FirebaseAuth.instance.currentUser;
-    
-    if (user != null) {
-      // Reload user to get latest verification status
-      await user.reload();
-      final updatedUser = FirebaseAuth.instance.currentUser;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
       
-      if (updatedUser != null && (updatedUser.emailVerified || updatedUser.isAnonymous)) {
-        context.go(AppRoutes.home);
+      if (user != null) {
+        // Reload user with timeout to handle no internet
+        try {
+          await user.reload().timeout(const Duration(seconds: 2));
+        } catch (_) {
+          // Ignore reload errors (like no connection) and proceed
+        }
+        
+        final updatedUser = FirebaseAuth.instance.currentUser;
+        
+        if (updatedUser != null && (updatedUser.emailVerified || updatedUser.isAnonymous)) {
+          context.go(AppRoutes.home);
+        } else {
+          context.go(AppRoutes.verifyEmail);
+        }
       } else {
-        // If logged in but not verified, go to verification screen
-        context.go(AppRoutes.verifyEmail);
+        context.go(AppRoutes.onboarding);
       }
-    } else {
+    } catch (e) {
+      // Fallback in case of any critical error
       context.go(AppRoutes.onboarding);
     }
   }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneymap/core/constants/color_constants.dart';
 import 'package:moneymap/core/widgets/common/app_bottom_nav.dart';
+import 'package:moneymap/core/widgets/common/common_error_widget.dart';
 import 'package:moneymap/features/home/presentation/widgets/balance_card.dart';
 import 'package:moneymap/features/home/presentation/widgets/quick_actions.dart';
 import 'package:moneymap/features/home/presentation/widgets/transaction_card.dart';
@@ -67,12 +68,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (!txProvider.isLoading) {
         txProvider.removeListener(onLoaded);
         setState(() => _settled = true);
-        _appearanceController.forward();
+        if (txProvider.error == null) {
+          _appearanceController.forward();
+        }
       }
     }
 
     txProvider.addListener(onLoaded);
     onLoaded();
+  }
+
+  void _retry() {
+    setState(() {
+      _settled = false;
+    });
+    _bootstrap();
   }
 
   @override
@@ -152,6 +162,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           builder: (context, txProvider, budgetProvider, _) {
             final allTransactions = txProvider.transactions;
             final recentTransactions = allTransactions.take(5).toList();
+            
+            // Error handling for initial load
+            if (txProvider.error != null && allTransactions.isEmpty && !txProvider.isLoading) {
+              return CommonErrorWidget(
+                message: 'Couldn\'t load your data. Please check your connection.',
+                onRetry: _retry,
+              );
+            }
+
             final isInitialLoad = (txProvider.isLoading || !_settled) && allTransactions.isEmpty;
 
             if (isInitialLoad) {
@@ -179,12 +198,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             const SizedBox(height: 12),
                           ],
 
-                          BalanceCard(
-                            key: ValueKey('balance_$_refreshTick'),
-                            balance: txProvider.balance,
-                            income: txProvider.totalIncome,
-                            expense: txProvider.totalExpense,
-                            lastUpdated: txProvider.lastRefreshedAt,
+                          RepaintBoundary(
+                            child: BalanceCard(
+                              key: ValueKey('balance_$_refreshTick'),
+                              balance: txProvider.balance,
+                              income: txProvider.totalIncome,
+                              expense: txProvider.totalExpense,
+                              lastUpdated: txProvider.lastRefreshedAt,
+                            ),
                           ),
                           const SizedBox(height: 24),
                           _buildCashFlowDashboard(context, txProvider),
@@ -549,6 +570,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildAnalyticsSnapshot(BuildContext context, TransactionProvider provider) {
     final colors = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final currency = context.watch<CurrencyProvider>();
     final spent = provider.monthlyExpense;
     final categorySummary = provider.getMonthlyExpenseByCategory();
@@ -628,22 +650,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        PieChart(
-                          PieChartData(
-                            sectionsSpace: 4,
-                            centerSpaceRadius: 42,
-                            startDegreeOffset: -90,
-                            sections: sorted.asMap().entries.map((e) {
-                              final index = e.key;
-                              final entry = e.value;
-                              return PieChartSectionData(
-                                color: _getThemeCategoryColor(entry.key, index),
-                                value: entry.value,
-                                title: '',
-                                radius: 14,
-                                badgeWidget: null,
-                              );
-                            }).toList(),
+                        RepaintBoundary(
+                          child: PieChart(
+                            PieChartData(
+                              sectionsSpace: 4,
+                              centerSpaceRadius: 42,
+                              startDegreeOffset: -90,
+                              sections: sorted.asMap().entries.map((e) {
+                                final index = e.key;
+                                final entry = e.value;
+                                return PieChartSectionData(
+                                  color: _getThemeCategoryColor(entry.key, index, isDark),
+                                  value: entry.value,
+                                  title: '',
+                                  radius: 14,
+                                  badgeWidget: null,
+                                );
+                              }).toList(),
+                            ),
                           ),
                         ),
                         Container(
@@ -672,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             children: [
                               Container(
                                 width: 8, height: 8,
-                                decoration: BoxDecoration(color: _getThemeCategoryColor(entry.key, index), shape: BoxShape.circle),
+                                decoration: BoxDecoration(color: _getThemeCategoryColor(entry.key, index, isDark), shape: BoxShape.circle),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -719,7 +743,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     Colors.deepOrangeAccent,
   ];
 
-  Color _getThemeCategoryColor(String category, int index) {
+  static const List<Color> _darkFallbackPalette = [
+    Color(0xFF8C9EFF), // Indigo Accent 100
+    Color(0xFFFF80AB), // Pink Accent 100
+    Color(0xFF84FFFF), // Cyan Accent 100
+    Color(0xFFFFE57F), // Amber Accent 100
+    Color(0xFFFF9E80), // Deep Orange Accent 100
+  ];
+
+  Color _getThemeCategoryColor(String category, int index, bool isDark) {
+    if (isDark) {
+      switch (category.toLowerCase()) {
+        case 'food':
+        case 'dining':
+          return const Color(0xFFFFD180); // Orange Accent 100
+        case 'shopping':
+          return const Color(0xFF82B1FF); // Blue Accent 100
+        case 'transport':
+        case 'travel':
+          return const Color(0xFFA7FFEB); // Teal Accent 100
+        case 'bills':
+        case 'utilities':
+          return const Color(0xFFFF8A80); // Red Accent 100
+        case 'education':
+          return const Color(0xFF8C9EFF); // Indigo Accent 100
+        case 'entertainment':
+          return const Color(0xFFEA80FC); // Purple Accent 100
+        default:
+          return _darkFallbackPalette[index % _darkFallbackPalette.length];
+      }
+    }
+
     switch (category.toLowerCase()) {
       case 'food':
       case 'dining':
@@ -1058,46 +1112,46 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           const Row(
             children: [
-              _ShimmerBox(width: 120, height: 14, radius: 6),
+              RepaintBoundary(child: _ShimmerBox(width: 120, height: 14, radius: 6)),
             ],
           ),
           const SizedBox(height: 8),
-          const _ShimmerBox(width: 160, height: 24, radius: 8),
+          const RepaintBoundary(child: _ShimmerBox(width: 160, height: 24, radius: 8)),
           const SizedBox(height: 24),
-          const _ShimmerBox(width: double.infinity, height: 190, radius: 24),
+          const RepaintBoundary(child: _ShimmerBox(width: double.infinity, height: 190, radius: 24)),
           const SizedBox(height: 24),
-          const _ShimmerBox(width: double.infinity, height: 76, radius: 20),
+          const RepaintBoundary(child: _ShimmerBox(width: double.infinity, height: 76, radius: 20)),
           const SizedBox(height: 24),
           Row(
             children: List.generate(4, (i) {
               return Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(right: i == 3 ? 0 : 12),
-                  child: const _ShimmerBox(width: double.infinity, height: 74, radius: 18),
+                  child: const RepaintBoundary(child: _ShimmerBox(width: double.infinity, height: 74, radius: 18)),
                 ),
               );
             }),
           ),
           const SizedBox(height: 32),
-          const _ShimmerBox(width: 140, height: 18, radius: 6),
+          const RepaintBoundary(child: _ShimmerBox(width: 140, height: 18, radius: 6)),
           const SizedBox(height: 16),
           ...List.generate(4, (i) => Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Row(
               children: [
-                const _ShimmerBox(width: 44, height: 44, radius: 14),
+                const RepaintBoundary(child: _ShimmerBox(width: 44, height: 44, radius: 14)),
                 const SizedBox(width: 14),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _ShimmerBox(width: 100, height: 12, radius: 4),
+                      RepaintBoundary(child: _ShimmerBox(width: 100, height: 12, radius: 4)),
                       SizedBox(height: 8),
-                      _ShimmerBox(width: 70, height: 10, radius: 4),
+                      RepaintBoundary(child: _ShimmerBox(width: 70, height: 10, radius: 4)),
                     ],
                   ),
                 ),
-                const _ShimmerBox(width: 60, height: 14, radius: 4),
+                const RepaintBoundary(child: _ShimmerBox(width: 60, height: 14, radius: 4)),
               ],
             ),
           )),
