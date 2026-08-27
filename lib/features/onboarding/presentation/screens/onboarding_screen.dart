@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/string_constants.dart';
 import '../../../../config/routes/app_routes.dart';
 import '../../../../core/theme/app_colors_extension.dart';
+import 'package:moneymap/features/auth/presentation/providers/app_auth_provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -57,6 +59,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   }
 
   void _navigateToAuth() {
+    context.read<AppAuthProvider>().completeOnboarding();
     context.go(AppRoutes.auth);
   }
 
@@ -109,7 +112,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                     child: Align(
                       alignment: Alignment.topRight,
                       child: TextButton(
-                        onPressed: () => _pageController.animateToPage(2, duration: const Duration(milliseconds: 600), curve: Curves.easeInOut),
+                        onPressed: () {
+                          context.read<AppAuthProvider>().completeOnboarding();
+                          _pageController.animateToPage(2, duration: const Duration(milliseconds: 600), curve: Curves.easeInOut);
+                        },
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

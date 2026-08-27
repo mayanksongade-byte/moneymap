@@ -124,6 +124,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (mounted) {
       setState(() => _isUploading = false);
       if (success) {
+        // Trigger notification for new/updated transaction
+        final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+        final currencySymbol = Provider.of<CurrencyProvider>(context, listen: false).currencySymbol;
+        
+        if (widget.transactionToEdit == null) {
+          notificationProvider.notifyTransactionAdded(
+            transaction,
+            formattedAmount: "$currencySymbol${transaction.amount.toStringAsFixed(0)}",
+            formattedBalance: "$currencySymbol${provider.monthlyBalance.toStringAsFixed(0)}",
+          );
+        } else {
+          // You can also add a notifyTransactionUpdated if you want, or just reuse Added for now
+          // but the provider method I added is notifyTransactionAdded. 
+          // I'll update it to be more generic if needed, but for now just call it.
+          notificationProvider.notifyTransactionAdded(
+            transaction,
+            formattedAmount: "$currencySymbol${transaction.amount.toStringAsFixed(0)}",
+            formattedBalance: "$currencySymbol${provider.monthlyBalance.toStringAsFixed(0)}",
+          );
+        }
+
         if (widget.transactionToEdit != null) {
           Navigator.pop(context, true);
         } else {
@@ -245,11 +266,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   widget.transactionToEdit != null ? "Edit Transaction" : "Add Transaction",
                   style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: -0.5),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
                 Text(
                   "Track your money smarter",
                   style: TextStyle(color: colors.textSecondary, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
@@ -376,9 +399,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     DateFormat('dd').format(_selectedDate),
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
                   ),
-                  Text(
-                    DateFormat('MMM yyyy').format(_selectedDate),
-                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                  FittedBox(
+                    child: Text(
+                      DateFormat('MMM yyyy').format(_selectedDate),
+                      style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
@@ -405,7 +430,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                   decoration: BoxDecoration(
                     color: isSelected ? modeColor.withValues(alpha: 0.15) : colors.surface,
                     borderRadius: BorderRadius.circular(16),
@@ -419,6 +444,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       Icon(mode['icon'], color: isSelected ? modeColor : colors.textPrimary, size: 22),
                       const SizedBox(height: 4),
                       FittedBox(
+                        fit: BoxFit.scaleDown,
                         child: Text(
                           mode['name'],
                           style: TextStyle(
@@ -473,7 +499,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Transaction Date", style: TextStyle(color: colors.textSecondary, fontSize: 11)),
-                Text(DateFormat('dd MMM yyyy').format(_selectedDate), style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(DateFormat('dd MMM yyyy').format(_selectedDate), style: TextStyle(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
               ],
             ),
           ),
@@ -485,7 +515,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Today", style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w700, fontSize: 12)),
+                  const Flexible(child: Text("Today", style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w700, fontSize: 12))),
                   Icon(Icons.keyboard_arrow_down, size: 16, color: colors.textSecondary),
                 ],
               ),
@@ -544,15 +574,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 const SizedBox(height: 6),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    cat.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected ? catColor : colors.textPrimary,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      cat.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? catColor : colors.textPrimary,
+                      ),
                     ),
                   ),
                 ),
@@ -584,7 +617,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               child: const Icon(Icons.check, color: Color(0xFF2563EB), size: 16),
             ),
             const SizedBox(width: 12),
-            Text(widget.transactionToEdit != null ? "Save Transaction" : "Add Transaction", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Flexible(child: FittedBox(child: Text(widget.transactionToEdit != null ? "Save Transaction" : "Add Transaction", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)))),
           ],
         ),
       ),

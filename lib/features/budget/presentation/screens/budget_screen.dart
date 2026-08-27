@@ -298,6 +298,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 8,
                   children: quickAmounts.map((amt) {
                     return GestureDetector(
                       onTap: () {
@@ -312,9 +313,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           color: colors.surfaceVariant,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          currencyProvider.format(amt),
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textPrimary),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            currencyProvider.format(amt),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textPrimary),
+                          ),
                         ),
                       ),
                     );
@@ -349,7 +353,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                          child: const Text('Remove', style: TextStyle(fontWeight: FontWeight.w600)),
+                          child: FittedBox(child: const Text('Remove', style: TextStyle(fontWeight: FontWeight.w600))),
                         ),
                       ),
                     if (currentLimit != null) const SizedBox(width: 12),
@@ -373,7 +377,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
+                        child: FittedBox(child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600))),
                       ),
                     ),
                   ],
@@ -503,17 +507,23 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      "Budget",
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -.8,
-                        color: colors.textPrimary,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        "Budget",
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.8,
+                          color: colors.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text("Track your monthly spending", style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+                    Text("Track your monthly spending", 
+                      style: TextStyle(fontSize: 13, color: colors.textSecondary),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
@@ -534,662 +544,688 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ),
         ),
       ),
-      body: budgetProvider.isLoading
-          ? _buildLoadingSkeleton(colors)
-          : Column(
-        children: [
-          _buildMonthSelector(colors),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: SingleChildScrollView(
-                key: ValueKey(_selectedMonth),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!_isCurrentMonth) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration:
-                        BoxDecoration(color: colors.surfaceVariant, borderRadius: BorderRadius.circular(12)),
-                        child: Row(
-                          children: [
-                            Icon(Icons.history_rounded, size: 16, color: colors.textSecondary),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Viewing ${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year} · limits shown reflect your current settings',
-                                style: TextStyle(fontSize: 11.5, color: colors.textSecondary),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    if (isOverBudget) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: .10),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.error.withValues(alpha: .25)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.warning_rounded, color: AppColors.error, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _isCurrentMonth
-                                    ? "You've exceeded your budget by ${currencyProvider.format(spent - limit)}"
-                                    : "You went ${currencyProvider.format(spent - limit)} over budget this month",
-                                style:
-                                const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 13),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    if (!_insightDismissed && (momChangePct != null || topCategory != null)) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: .06),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.insights_rounded, size: 18, color: AppColors.primary),
-                                const SizedBox(width: 8),
-                                Text('Insight',
-                                    style: TextStyle(
-                                        fontSize: 12, fontWeight: FontWeight.w700, color: colors.textSecondary)),
-                                const Spacer(),
-                                GestureDetector(
-                                  onTap: () => setState(() => _insightDismissed = true),
-                                  child: Icon(Icons.close_rounded, size: 16, color: colors.textDisabled),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: budgetProvider.isLoading
+            ? _buildLoadingSkeleton(colors)
+            : Column(
+          key: const ValueKey('data_state'),
+          children: [
+            _buildMonthSelector(colors),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: SingleChildScrollView(
+                  key: ValueKey(_selectedMonth),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!_isCurrentMonth) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration:
+                          BoxDecoration(color: colors.surfaceVariant, borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            children: [
+                              Icon(Icons.history_rounded, size: 16, color: colors.textSecondary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Viewing ${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year} · limits shown reflect your current settings',
+                                  style: TextStyle(fontSize: 11.5, color: colors.textSecondary),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (momChangePct != null)
-                              Text(
-                                momChangePct >= 0
-                                    ? "You've spent ${momChangePct.toStringAsFixed(0)}% more than last month"
-                                    : "You've spent ${momChangePct.abs().toStringAsFixed(0)}% less than last month",
-                                style: TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w600, color: colors.textPrimary),
-                              ),
-                            if (topCategory != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                '${topCategory.name} is your top spending category · ${currencyProvider.format(topCategorySpend)}',
-                                style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
                               ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
 
-                    if (prevMonthUnused > 0) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: .08),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.savings_outlined, size: 18, color: AppColors.success),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'You had ${currencyProvider.format(prevMonthUnused)} left unused in ${_monthNames[prevMonth.month - 1]}',
-                                style: const TextStyle(
-                                    fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.success),
+                      if (isOverBudget) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withValues(alpha: .10),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.error.withValues(alpha: .25)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_rounded, color: AppColors.error, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _isCurrentMonth
+                                      ? "You've exceeded your budget by ${currencyProvider.format(spent - limit)}"
+                                      : "You went ${currencyProvider.format(spent - limit)} over budget this month",
+                                  style:
+                                  const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
                               ),
-                            ),
-                            TextButton(
-                              onPressed: () => _applySuggestedAmount(limit + prevMonthUnused),
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.success,
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                              ),
-                              child: const Text('Add it', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
 
-                    if (budgetProvider.hasBudget) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: colors.border.withValues(alpha: .15)),
-                          boxShadow: [
-                            BoxShadow(
-                                color: Colors.black.withValues(alpha: .04), blurRadius: 20, offset: const Offset(0, 8)),
-                          ],
+                      if (!_insightDismissed && (momChangePct != null || topCategory != null)) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: .06),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.insights_rounded, size: 18, color: AppColors.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text('Insight',
+                                        style: TextStyle(
+                                            fontSize: 12, fontWeight: FontWeight.w700, color: colors.textSecondary),
+                                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => setState(() => _insightDismissed = true),
+                                    child: Icon(Icons.close_rounded, size: 16, color: colors.textDisabled),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (momChangePct != null)
+                                Text(
+                                  momChangePct >= 0
+                                      ? "You've spent ${momChangePct.toStringAsFixed(0)}% more than last month"
+                                      : "You've spent ${momChangePct.abs().toStringAsFixed(0)}% less than last month",
+                                  style: TextStyle(
+                                      fontSize: 13, fontWeight: FontWeight.w600, color: colors.textPrimary),
+                                ),
+                              if (topCategory != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${topCategory.name} is your top spending category · ${currencyProvider.format(topCategorySpend)}',
+                                  style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                        child: Column(
-                          children: [
-                            Text("Monthly Budget",
-                                style: TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.w600, color: colors.textSecondary)),
-                            const SizedBox(height: 24),
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
+                        const SizedBox(height: 16),
+                      ],
+
+                      if (prevMonthUnused > 0) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: .08),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.savings_outlined, size: 18, color: AppColors.success),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'You had ${currencyProvider.format(prevMonthUnused)} left unused in ${_monthNames[prevMonth.month - 1]}',
+                                  style: const TextStyle(
+                                      fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.success),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => _applySuggestedAmount(limit + prevMonthUnused),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.success,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                ),
+                                child: const Text('Add it', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      if (budgetProvider.hasBudget) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: colors.border.withValues(alpha: .15)),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withValues(alpha: .04), blurRadius: 20, offset: const Offset(0, 8)),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Text("Monthly Budget",
+                                  style: TextStyle(
+                                      fontSize: 14, fontWeight: FontWeight.w600, color: colors.textSecondary)),
+                              const SizedBox(height: 24),
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Container(
+                                    width: 170,
+                                    height: 170,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _progressColor(progress, isOverBudget).withValues(alpha: .18),
+                                          blurRadius: 40,
+                                          spreadRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0, end: progress),
+                                    duration: const Duration(milliseconds: 700),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, animatedProgress, _) => SizedBox(
+                                      width: 180,
+                                      height: 180,
+                                      child: CircularProgressIndicator(
+                                        value: animatedProgress,
+                                        strokeWidth: 12,
+                                        strokeCap: StrokeCap.round,
+                                        backgroundColor: colors.surfaceVariant,
+                                        valueColor: AlwaysStoppedAnimation(_progressColor(progress, isOverBudget)),
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(20.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text("Remaining", style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+                                        const SizedBox(height: 6),
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            currencyProvider.format((limit - spent).clamp(0, double.infinity)),
+                                            style: TextStyle(
+                                              fontSize: 30,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: -.5,
+                                              color: colors.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: _progressColor(progress, isOverBudget).withValues(alpha: .12),
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            "${(progress * 100).toStringAsFixed(0)}% used",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: _progressColor(progress, isOverBudget),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_isCurrentMonth && limit > 0 && !isOverBudget) ...[
+                                const SizedBox(height: 20),
                                 Container(
-                                  width: 170,
-                                  height: 170,
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: _progressColor(progress, isOverBudget).withValues(alpha: .18),
-                                        blurRadius: 40,
-                                        spreadRadius: 4,
+                                    color: (isAheadOfPace ? AppColors.warning : AppColors.success)
+                                        .withValues(alpha: .08),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isAheadOfPace ? Icons.trending_up_rounded : Icons.check_circle_rounded,
+                                        size: 18,
+                                        color: isAheadOfPace ? AppColors.warning : AppColors.success,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          isAheadOfPace
+                                              ? "Spending faster than planned · ${currencyProvider.format(dailyAllowance)}/day left for $daysRemaining days"
+                                              : "On track · ${currencyProvider.format(dailyAllowance)}/day left for $daysRemaining days",
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: isAheadOfPace ? AppColors.warning : AppColors.success,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                TweenAnimationBuilder<double>(
-                                  tween: Tween(begin: 0, end: progress),
-                                  duration: const Duration(milliseconds: 700),
-                                  curve: Curves.easeOutCubic,
-                                  builder: (context, animatedProgress, _) => SizedBox(
-                                    width: 180,
-                                    height: 180,
-                                    child: CircularProgressIndicator(
-                                      value: animatedProgress,
-                                      strokeWidth: 12,
-                                      strokeCap: StrokeCap.round,
-                                      backgroundColor: colors.surfaceVariant,
-                                      valueColor: AlwaysStoppedAnimation(_progressColor(progress, isOverBudget)),
-                                    ),
-                                  ),
-                                ),
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text("Remaining", style: TextStyle(fontSize: 13, color: colors.textSecondary)),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      currencyProvider.format((limit - spent).clamp(0, double.infinity)),
-                                      style: TextStyle(
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: -.5,
-                                        color: colors.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              ],
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                                       decoration: BoxDecoration(
-                                        color: _progressColor(progress, isOverBudget).withValues(alpha: .12),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        "${(progress * 100).toStringAsFixed(0)}% used",
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: _progressColor(progress, isOverBudget),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            if (_isCurrentMonth && limit > 0 && !isOverBudget) ...[
-                              const SizedBox(height: 20),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: (isAheadOfPace ? AppColors.warning : AppColors.success)
-                                      .withValues(alpha: .08),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isAheadOfPace ? Icons.trending_up_rounded : Icons.check_circle_rounded,
-                                      size: 18,
-                                      color: isAheadOfPace ? AppColors.warning : AppColors.success,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        isAheadOfPace
-                                            ? "Spending faster than planned · ${currencyProvider.format(dailyAllowance)}/day left for $daysRemaining days"
-                                            : "On track · ${currencyProvider.format(dailyAllowance)}/day left for $daysRemaining days",
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: isAheadOfPace ? AppColors.warning : AppColors.success,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    decoration: BoxDecoration(
-                                        color: colors.surfaceVariant, borderRadius: BorderRadius.circular(18)),
-                                    child: Column(
-                                      children: [
-                                        Text("Spent", style: TextStyle(fontSize: 12, color: colors.textSecondary)),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          currencyProvider.format(spent),
-                                          style: TextStyle(
-                                              fontSize: 18, fontWeight: FontWeight.bold, color: colors.textPrimary),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    decoration: BoxDecoration(
-                                        color: colors.surfaceVariant, borderRadius: BorderRadius.circular(18)),
-                                    child: Column(
-                                      children: [
-                                        Text("Budget", style: TextStyle(fontSize: 12, color: colors.textSecondary)),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          currencyProvider.format(limit),
-                                          style: TextStyle(
-                                              fontSize: 18, fontWeight: FontWeight.bold, color: colors.textPrimary),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: colors.border.withValues(alpha: .15)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Spending Trend',
-                                style: TextStyle(
-                                    fontSize: 14, fontWeight: FontWeight.w600, color: colors.textPrimary)),
-                            const SizedBox(height: 4),
-                            Text('Last 6 months',
-                                style: TextStyle(fontSize: 11.5, color: colors.textSecondary)),
-                            const SizedBox(height: 18),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List.generate(trendMonths.length, (i) {
-                                final m = trendMonths[i];
-                                final v = trendValues[i];
-                                final barHeight = trendMax > 0 ? (v / trendMax) * 70 : 0.0;
-                                final isCurrent = m.year == now.year && m.month == now.month;
-                                return Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      v > 0 ? '${currencyProvider.currencySymbol}${(v / 1000).toStringAsFixed(v >= 1000 ? 1 : 0)}${v >= 1000 ? 'k' : ''}' : '',
-                                      style: TextStyle(fontSize: 9, color: colors.textSecondary),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    TweenAnimationBuilder<double>(
-                                      tween: Tween(begin: 0, end: barHeight.clamp(4.0, 70.0)),
-                                      duration: const Duration(milliseconds: 600),
-                                      curve: Curves.easeOutCubic,
-                                      builder: (context, height, _) => Container(
-                                        width: 22,
-                                        height: height,
-                                        decoration: BoxDecoration(
-                                          color: isCurrent
-                                              ? AppColors.primary
-                                              : AppColors.primary.withValues(alpha: .25),
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _monthShort[m.month - 1],
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                                        color: isCurrent ? colors.textPrimary : colors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ] else ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: colors.border.withValues(alpha: .15)),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: .10), shape: BoxShape.circle),
-                              child: const Icon(Icons.savings_rounded, color: AppColors.primary, size: 30),
-                            ),
-                            const SizedBox(height: 16),
-                            Text("No budget set yet",
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary)),
-                            const SizedBox(height: 6),
-                            Text(
-                              "Set a monthly budget to start tracking your spending",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 13, color: colors.textSecondary),
-                            ),
-                            const SizedBox(height: 18),
-                            ElevatedButton(
-                              onPressed: _focusBudgetInput,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
-                              child: const Text('Set Budget', style: TextStyle(fontWeight: FontWeight.w700)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-
-                    if (_isCurrentMonth) ...[
-                      Text(
-                        budgetProvider.hasBudget ? 'Update Total Budget' : 'Set Total Monthly Budget',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        key: _inputSectionKey,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              focusNode: _inputFocusNode,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              style: TextStyle(color: colors.textPrimary, fontSize: 15),
-                              onChanged: (_) {
-                                if (_inputError != null) setState(() => _inputError = null);
-                              },
-                              decoration: InputDecoration(
-                                hintText:
-                                budgetProvider.hasBudget ? 'Current: ${currencyProvider.format(limit)}' : 'e.g. 20000',
-                                hintStyle: TextStyle(color: colors.textHint),
-                                prefixText: '${currencyProvider.currencySymbol} ',
-                                prefixStyle: TextStyle(color: colors.textPrimary, fontSize: 15),
-                                errorText: _inputError,
-                                filled: true,
-                                fillColor: colors.surfaceVariant,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onPressed: _isSaving ? null : () => _saveBudget(budgetProvider),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: _isSaving
-                                ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text('Save',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-                    ],
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text('Category Budgets',
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _isCurrentMonth
-                          ? 'Tap a category to set or update its own limit'
-                          : 'Spending by category this month',
-                      style: TextStyle(fontSize: 12, color: colors.textSecondary),
-                    ),
-                    if (categoryLimitsExceedBudget) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.warning),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Category limits add up to ${currencyProvider.format(sumOfCategoryLimits)}, more than your ${currencyProvider.format(limit)} budget',
-                              style: const TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-
-                    if (allExpenseCategories.length > 5) ...[
-                      TextField(
-                        controller: _categorySearchController,
-                        onChanged: (v) => setState(() => _categoryQuery = v),
-                        style: TextStyle(color: colors.textPrimary, fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'Search categories',
-                          hintStyle: TextStyle(color: colors.textHint, fontSize: 13),
-                          prefixIcon: Icon(Icons.search_rounded, size: 18, color: colors.textSecondary),
-                          filled: true,
-                          fillColor: colors.surfaceVariant,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                          border:
-                          OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    if (expenseCategories.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Center(
-                          child: Text('No categories match your search',
-                              style: TextStyle(fontSize: 12, color: colors.textSecondary)),
-                        ),
-                      ),
-
-                    ...expenseCategories.map((category) {
-                      final catSpent = _monthExpenseForCategory(transactionProvider, category.name, _selectedMonth);
-                      final catLimit = budgetProvider.limitForCategory(category.name);
-                      final hasLimit = catLimit != null && catLimit > 0;
-                      final catProgress = hasLimit ? (catSpent / catLimit).clamp(0.0, 1.0) : 0.0;
-                      final catOver = hasLimit && catSpent > catLimit;
-                      final catColor = _progressColor(catProgress, catOver);
-
-                      if (catSpent == 0 && !hasLimit && !_isCurrentMonth) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: _isCurrentMonth
-                              ? () => _showCategoryLimitSheet(
-                              context, budgetProvider, transactionProvider, currencyProvider, category.name, category.icon, catLimit)
-                              : null,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: colors.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              border: catOver ? Border.all(color: AppColors.error.withValues(alpha: .35)) : null,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: (hasLimit ? catColor : AppColors.primary).withValues(alpha: .12),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(category.icon, style: const TextStyle(fontSize: 18)),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
+                                          color: colors.surfaceVariant, borderRadius: BorderRadius.circular(18)),
+                                      child: Column(
                                         children: [
-                                          Expanded(
-                                            child: Text(category.name,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: colors.textPrimary)),
-                                          ),
-                                          if (hasLimit)
-                                            Text(
-                                              '${(catProgress * 100).toStringAsFixed(0)}%',
-                                              style:
-                                              TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: catColor),
+                                          Text("Spent", style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                                          const SizedBox(height: 6),
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              currencyProvider.format(spent),
+                                              style: TextStyle(
+                                                  fontSize: 18, fontWeight: FontWeight.bold, color: colors.textPrimary),
                                             ),
+                                          ),
                                         ],
                                       ),
-                                      const SizedBox(height: 6),
-                                      if (hasLimit) ...[
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: TweenAnimationBuilder<double>(
-                                            tween: Tween(begin: 0, end: catProgress),
-                                            duration: const Duration(milliseconds: 600),
-                                            curve: Curves.easeOutCubic,
-                                            builder: (context, animatedValue, _) => LinearProgressIndicator(
-                                              value: animatedValue,
-                                              minHeight: 6,
-                                              backgroundColor: colors.surfaceVariant,
-                                              valueColor: AlwaysStoppedAnimation(catColor),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                                      decoration: BoxDecoration(
+                                          color: colors.surfaceVariant, borderRadius: BorderRadius.circular(18)),
+                                      child: Column(
+                                        children: [
+                                          Text("Budget", style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                                          const SizedBox(height: 6),
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              currencyProvider.format(limit),
+                                              style: TextStyle(
+                                                  fontSize: 18, fontWeight: FontWeight.bold, color: colors.textPrimary),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${currencyProvider.format(catSpent)} / ${currencyProvider.format(catLimit)}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: catOver ? AppColors.error : colors.textSecondary,
-                                            fontWeight: catOver ? FontWeight.w600 : FontWeight.normal,
-                                          ),
-                                        ),
-                                      ] else
-                                        Text(
-                                          'Spent ${currencyProvider.format(catSpent)} · No limit set',
-                                          style: TextStyle(fontSize: 11, color: colors.textDisabled),
-                                        ),
-                                    ],
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                if (_isCurrentMonth) ...[
-                                  const SizedBox(width: 8),
-                                  Icon(hasLimit ? Icons.edit_outlined : Icons.add_circle_outline,
-                                      size: 18, color: colors.textDisabled),
                                 ],
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    }),
+                        const SizedBox(height: 20),
 
-                    const SizedBox(height: 12),
-                  ],
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: colors.border.withValues(alpha: .15)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Spending Trend',
+                                  style: TextStyle(
+                                      fontSize: 14, fontWeight: FontWeight.w600, color: colors.textPrimary)),
+                              const SizedBox(height: 4),
+                              Text('Last 6 months',
+                                  style: TextStyle(fontSize: 11.5, color: colors.textSecondary)),
+                              const SizedBox(height: 18),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: List.generate(trendMonths.length, (i) {
+                                  final m = trendMonths[i];
+                                  final v = trendValues[i];
+                                  final barHeight = trendMax > 0 ? (v / trendMax) * 70 : 0.0;
+                                  final isCurrent = m.year == now.year && m.month == now.month;
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          v > 0 ? '${currencyProvider.currencySymbol}${(v / 1000).toStringAsFixed(v >= 1000 ? 1 : 0)}${v >= 1000 ? 'k' : ''}' : '',
+                                          style: TextStyle(fontSize: 9, color: colors.textSecondary),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      TweenAnimationBuilder<double>(
+                                        tween: Tween(begin: 0, end: barHeight.clamp(4.0, 70.0)),
+                                        duration: const Duration(milliseconds: 600),
+                                        curve: Curves.easeOutCubic,
+                                        builder: (context, height, _) => Container(
+                                          width: 22,
+                                          height: height,
+                                          decoration: BoxDecoration(
+                                            color: isCurrent
+                                                ? AppColors.primary
+                                                : AppColors.primary.withValues(alpha: .25),
+                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _monthShort[m.month - 1],
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                                          color: isCurrent ? colors.textPrimary : colors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ] else ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: colors.border.withValues(alpha: .15)),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: .10), shape: BoxShape.circle),
+                                child: const Icon(Icons.savings_rounded, color: AppColors.primary, size: 30),
+                              ),
+                              const SizedBox(height: 16),
+                              Text("No budget set yet",
+                                  style: TextStyle(
+                                      fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary)),
+                              const SizedBox(height: 6),
+                              Text(
+                                "Set a monthly budget to start tracking your spending",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 13, color: colors.textSecondary),
+                              ),
+                              const SizedBox(height: 18),
+                              ElevatedButton(
+                                onPressed: _focusBudgetInput,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                                child: FittedBox(child: const Text('Set Budget', style: TextStyle(fontWeight: FontWeight.w700))),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      if (_isCurrentMonth) ...[
+                        Text(
+                          budgetProvider.hasBudget ? 'Update Total Budget' : 'Set Total Monthly Budget',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          key: _inputSectionKey,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _controller,
+                                focusNode: _inputFocusNode,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: TextStyle(color: colors.textPrimary, fontSize: 15),
+                                onChanged: (_) {
+                                  if (_inputError != null) setState(() => _inputError = null);
+                                },
+                                decoration: InputDecoration(
+                                  hintText:
+                                  budgetProvider.hasBudget ? 'Current: ${currencyProvider.format(limit)}' : 'e.g. 20000',
+                                  hintStyle: TextStyle(color: colors.textHint),
+                                  prefixText: '${currencyProvider.currencySymbol} ',
+                                  prefixStyle: TextStyle(color: colors.textPrimary, fontSize: 15),
+                                  errorText: _inputError,
+                                  filled: true,
+                                  fillColor: colors.surfaceVariant,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton(
+                              onPressed: _isSaving ? null : () => _saveBudget(budgetProvider),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: _isSaving
+                                  ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Text('Save',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+                      ],
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('Category Budgets',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _isCurrentMonth
+                            ? 'Tap a category to set or update its own limit'
+                            : 'Spending by category this month',
+                        style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                      ),
+                      if (categoryLimitsExceedBudget) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.warning),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Category limits add up to ${currencyProvider.format(sumOfCategoryLimits)}, more than your ${currencyProvider.format(limit)} budget',
+                                style: const TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+
+                      if (allExpenseCategories.length > 5) ...[
+                        TextField(
+                          controller: _categorySearchController,
+                          onChanged: (v) => setState(() => _categoryQuery = v),
+                          style: TextStyle(color: colors.textPrimary, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'Search categories',
+                            hintStyle: TextStyle(color: colors.textHint, fontSize: 13),
+                            prefixIcon: Icon(Icons.search_rounded, size: 18, color: colors.textSecondary),
+                            filled: true,
+                            fillColor: colors.surfaceVariant,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            border:
+                            OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
+                      if (expenseCategories.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: Text('No categories match your search',
+                                style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                          ),
+                        ),
+
+                      ...expenseCategories.map((category) {
+                        final catSpent = _monthExpenseForCategory(transactionProvider, category.name, _selectedMonth);
+                        final catLimit = budgetProvider.limitForCategory(category.name);
+                        final hasLimit = catLimit != null && catLimit > 0;
+                        final catProgress = hasLimit ? (catSpent / catLimit).clamp(0.0, 1.0) : 0.0;
+                        final catOver = hasLimit && catSpent > catLimit;
+                        final catColor = _progressColor(catProgress, catOver);
+
+                        if (catSpent == 0 && !hasLimit && !_isCurrentMonth) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: _isCurrentMonth
+                                ? () => _showCategoryLimitSheet(
+                                context, budgetProvider, transactionProvider, currencyProvider, category.name, category.icon, catLimit)
+                                : null,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(16),
+                                border: catOver ? Border.all(color: AppColors.error.withValues(alpha: .35)) : null,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: (hasLimit ? catColor : AppColors.primary).withValues(alpha: .12),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(category.icon, style: const TextStyle(fontSize: 18)),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(category.name,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: colors.textPrimary)),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            if (hasLimit)
+                                              Text(
+                                                '${(catProgress * 100).toStringAsFixed(0)}%',
+                                                style:
+                                                TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: catColor),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        if (hasLimit) ...[
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(6),
+                                            child: TweenAnimationBuilder<double>(
+                                              tween: Tween(begin: 0, end: catProgress),
+                                              duration: const Duration(milliseconds: 600),
+                                              curve: Curves.easeOutCubic,
+                                              builder: (context, animatedValue, _) => LinearProgressIndicator(
+                                                value: animatedValue,
+                                                minHeight: 6,
+                                                backgroundColor: colors.surfaceVariant,
+                                                valueColor: AlwaysStoppedAnimation(catColor),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              '${currencyProvider.format(catSpent)} / ${currencyProvider.format(catLimit)}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: catOver ? AppColors.error : colors.textSecondary,
+                                                fontWeight: catOver ? FontWeight.w600 : FontWeight.normal,
+                                              ),
+                                            ),
+                                          ),
+                                        ] else
+                                          Text(
+                                            'Spent ${currencyProvider.format(catSpent)} · No limit set',
+                                            style: TextStyle(fontSize: 11, color: colors.textDisabled),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (_isCurrentMonth) ...[
+                                    const SizedBox(width: 8),
+                                    Icon(hasLimit ? Icons.edit_outlined : Icons.add_circle_outline,
+                                        size: 18, color: colors.textDisabled),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+
+                      const SizedBox(height: 12),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1229,9 +1265,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
             ),
             Expanded(
               child: Center(
-                child: Text(
-                  '${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: colors.textPrimary),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: colors.textPrimary),
+                  ),
                 ),
               ),
             ),
@@ -1266,6 +1305,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     );
 
     return SingleChildScrollView(
+      key: const ValueKey('loading_state'),
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       child: Column(

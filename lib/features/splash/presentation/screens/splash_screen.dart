@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../../config/routes/app_routes.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/services/notification_service.dart';
+import 'package:moneymap/features/auth/presentation/providers/app_auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,7 +18,8 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
-  late final AnimationController _mainController;
+  late final AnimationController _entranceController;
+  late final AnimationController _exitController;
   late final AnimationController _floatController;
 
   late final Animation<double> _fadeIn;
@@ -30,9 +33,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     NotificationService().requestPermissions();
 
-    _mainController = AnimationController(
+    _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _exitController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
     );
 
     _floatController = AnimationController(
@@ -42,22 +50,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
     _fadeIn = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+        parent: _entranceController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeIn),
       ),
     );
 
     _scale = Tween<double>(begin: 0.9, end: 1.0).animate(
       CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOutBack),
+        parent: _entranceController,
+        curve: const Interval(0.0, 1.0, curve: Curves.easeOutBack),
       ),
     );
 
     _exitFade = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.85, 1.0, curve: Curves.easeInOut),
+        parent: _exitController,
+        curve: Curves.easeInOut,
       ),
     );
 
@@ -68,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       ),
     );
 
-    _mainController.forward().then((_) => _navigateToNext());
+    _entranceController.forward().then((_) => _navigateToNext());
 
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -82,35 +90,55 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     if (!mounted) return;
     
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
       
-      if (user != null) {
-        // Reload user with timeout to handle no internet
-        try {
-          await user.reload().timeout(const Duration(seconds: 2));
-        } catch (_) {
-          // Ignore reload errors (like no connection) and proceed
-        }
-        
-        final updatedUser = FirebaseAuth.instance.currentUser;
-        
-        if (updatedUser != null && (updatedUser.emailVerified || updatedUser.isAnonymous)) {
+      // 1. Wait for Auth Provider to initialize (includes Firebase session restoration)
+      int retries = 0;
+      while (!authProvider.isInitialized && retries < 40) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        retries++;
+      }
+      
+      if (!mounted) return;
+
+      // 2. Start Exit Animation (Navigate while fading out)
+      _exitController.forward();
+      
+      // Short delay to let the fade-out start before navigation switch
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      if (!mounted) return;
+
+      // 3. Final Routing Decision
+      final status = authProvider.status;
+      switch (status) {
+        case AuthStatus.authenticated:
+        case AuthStatus.guest:
           context.go(AppRoutes.home);
-        } else {
+          break;
+          
+        case AuthStatus.unverified:
           context.go(AppRoutes.verifyEmail);
-        }
-      } else {
-        context.go(AppRoutes.onboarding);
+          break;
+          
+        case AuthStatus.unauthenticated:
+        case AuthStatus.initial:
+          if (authProvider.onboardingComplete) {
+            context.go(AppRoutes.auth);
+          } else {
+            context.go(AppRoutes.onboarding);
+          }
+          break;
       }
     } catch (e) {
-      // Fallback in case of any critical error
-      context.go(AppRoutes.onboarding);
+      if (mounted) context.go(AppRoutes.onboarding);
     }
   }
 
   @override
   void dispose() {
-    _mainController.dispose();
+    _entranceController.dispose();
+    _exitController.dispose();
     _floatController.dispose();
     super.dispose();
   }
@@ -124,10 +152,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     return Scaffold(
       backgroundColor: themeColors.background,
       body: AnimatedBuilder(
-        animation: _mainController,
+        animation: Listenable.merge([_entranceController, _exitController]),
         builder: (context, child) {
+          // Combined opacity: fade in then fade out when ready
+          final double currentOpacity = _exitController.isAnimating || _exitController.isCompleted
+              ? _exitFade.value
+              : _fadeIn.value;
+
           return Opacity(
-            opacity: _exitFade.value,
+            opacity: currentOpacity,
             child: Stack(
               children: [
                 Positioned.fill(

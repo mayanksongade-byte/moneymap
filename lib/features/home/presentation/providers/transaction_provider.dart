@@ -233,7 +233,7 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> finalizeDeletion(String id) async {
-    final transaction = _pendingDeletions.remove(id);
+    final transaction = _pendingDeletions[id];
     if (transaction != null) {
       _transactions.removeWhere((t) => t.id == id);
       _monthlyTransactions.removeWhere((t) => t.id == id);
@@ -241,8 +241,10 @@ class TransactionProvider extends ChangeNotifier {
         await _service.deleteTransaction(id).timeout(const Duration(seconds: 4));
       } catch (e) {
         // Silently fail if offline, deletion is done in UI/cache
+      } finally {
+        _pendingDeletions.remove(id);
+        notifyListeners();
       }
-      notifyListeners();
     }
   }
 

@@ -45,13 +45,17 @@ class NotificationScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Notifications',
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 28,
-                      letterSpacing: -0.8,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Notifications',
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 28,
+                        letterSpacing: -0.8,
+                      ),
                     ),
                   ),
                   Text(
@@ -67,23 +71,39 @@ class NotificationScreen extends StatelessWidget {
           Consumer<NotificationProvider>(
             builder: (context, provider, _) {
               if (provider.history.isEmpty) return const SizedBox.shrink();
-              return PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: colors.textPrimary),
-                onSelected: (value) {
-                  if (value == 'mark_read') {
-                    provider.markAllAsRead();
-                  } else if (value == 'delete_all') {
-                    _showDeleteAllDialog(context, provider);
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'mark_read',
-                    child: Text('Mark all as read'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete_all',
-                    child: Text('Delete all', style: TextStyle(color: Colors.red)),
+              return Row(
+                children: [
+                  if (provider.unreadCount > 0)
+                    TextButton(
+                      onPressed: () => provider.markAllAsRead(),
+                      child: const Text(
+                        'Mark all as read',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: colors.textPrimary),
+                    onSelected: (value) {
+                      if (value == 'mark_read') {
+                        provider.markAllAsRead();
+                      } else if (value == 'delete_all') {
+                        _showDeleteAllDialog(context, provider);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'mark_read',
+                        child: Text('Mark all as read'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete_all',
+                        child: Text('Delete all', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -94,39 +114,46 @@ class NotificationScreen extends StatelessWidget {
       ),
       body: Consumer<NotificationProvider>(
         builder: (context, provider, _) {
-          if (provider.history.isEmpty) {
-            return _buildEmptyState(context);
-          }
-
-          final groupedNotifications = _groupNotifications(provider.history);
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: groupedNotifications.length,
-            itemBuilder: (context, index) {
-              final group = groupedNotifications[index];
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                    child: Text(
-                      group.title.toUpperCase(),
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                  ...group.notifications.map((n) => _NotificationItem(notification: n)),
-                ],
-              );
-            },
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: provider.history.isEmpty
+                ? _buildEmptyState(context)
+                : _buildNotificationList(context, provider.history),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildNotificationList(BuildContext context, List<NotificationHistoryModel> history) {
+    final colors = context.colors;
+    final groupedNotifications = _groupNotifications(history);
+
+    return ListView.builder(
+      key: const ValueKey('notification_list'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: groupedNotifications.length,
+      itemBuilder: (context, index) {
+        final group = groupedNotifications[index];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              child: Text(
+                group.title.toUpperCase(),
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            ...group.notifications.map((n) => _NotificationItem(notification: n)),
+          ],
+        );
+      },
     );
   }
 
@@ -156,6 +183,7 @@ class NotificationScreen extends StatelessWidget {
   Widget _buildEmptyState(BuildContext context) {
     final colors = context.colors;
     return Center(
+      key: const ValueKey('notification_empty'),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -178,10 +206,13 @@ class NotificationScreen extends StatelessWidget {
             style: TextStyle(color: colors.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 4),
-          Text(
-            "We'll notify you about important money reminders\nand budget updates.",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: colors.textDisabled, fontSize: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              "We'll notify you about important money reminders and budget updates.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.textDisabled, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -283,6 +314,8 @@ class _NotificationItem extends StatelessWidget {
                               fontWeight: notification.isRead ? FontWeight.w600 : FontWeight.w800,
                               fontSize: 15,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (!notification.isRead)
@@ -330,20 +363,30 @@ class _NotificationItem extends StatelessWidget {
     Color color;
 
     switch (type) {
-      case 'morning_reminder':
-        iconData = Icons.wb_sunny_rounded;
-        color = Colors.orange;
-        break;
-      case 'evening_reminder':
-        iconData = Icons.account_balance_wallet_rounded;
-        color = Colors.blue;
-        break;
+      case 'budgetAlert':
       case 'budget_alert':
         iconData = Icons.warning_amber_rounded;
-        color = Colors.amber;
+        color = Colors.orange;
         break;
       case 'budget_exceeded':
         iconData = Icons.error_outline_rounded;
+        color = Colors.red;
+        break;
+      case 'reminder':
+      case 'morning_reminder':
+        iconData = Icons.wb_sunny_rounded;
+        color = Colors.blue;
+        break;
+      case 'evening_reminder':
+        iconData = Icons.nightlight_round;
+        color = Colors.indigo;
+        break;
+      case 'transactionAdded':
+        iconData = Icons.account_balance_wallet_rounded;
+        color = Colors.green;
+        break;
+      case 'syncFailed':
+        iconData = Icons.sync_problem_rounded;
         color = Colors.red;
         break;
       case 'weekly_summary':
@@ -380,12 +423,15 @@ class _NotificationItem extends StatelessWidget {
 
   void _handleNavigation(BuildContext context, String type) {
     switch (type) {
+      case 'transactionAdded':
       case 'morning_reminder':
       case 'evening_reminder':
+      case 'reminder':
         context.push(AppRoutes.addTransaction);
         break;
       case 'budget_alert':
       case 'budget_exceeded':
+      case 'budgetAlert':
         context.push(AppRoutes.budget);
         break;
       case 'weekly_summary':

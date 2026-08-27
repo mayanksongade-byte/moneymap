@@ -92,11 +92,15 @@ class TransactionCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            category,
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: colors.textPrimary),
+                          Flexible(
+                            child: Text(
+                              category,
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: colors.textPrimary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
@@ -115,16 +119,25 @@ class TransactionCard extends StatelessWidget {
                       Text(
                         date,
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                Text(
-                  '$amountPrefix${currency.format(amount)}',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: amountColor,
+                const SizedBox(width: 12),
+                Flexible(
+                  flex: 0,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '$amountPrefix${currency.format(amount)}',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: amountColor,
+                      ),
+                    ),
                   ),
                 ),
               ],

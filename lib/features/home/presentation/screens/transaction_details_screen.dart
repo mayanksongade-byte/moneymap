@@ -66,38 +66,47 @@ class TransactionDetailsScreen extends StatelessWidget {
                     colors: [accentColor, accentColor.withValues(alpha: 0.8)],
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 60),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 60),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                        ),
+                        child: Text(transaction.icon, style: const TextStyle(fontSize: 40)),
                       ),
-                      child: Text(transaction.icon, style: const TextStyle(fontSize: 40)),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '${isIncome ? '+' : '-'} ${currency.format(transaction.amount, showDecimals: true)}',
-                      style: const TextStyle(
-                        fontSize: 38,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -1,
+                      const SizedBox(height: 16),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '${isIncome ? '+' : '-'} ${currency.format(transaction.amount, showDecimals: true)}',
+                          style: const TextStyle(
+                            fontSize: 38,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -1,
+                          ),
+                        ),
                       ),
-                    ),
-                    Text(
-                      transaction.category,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.9),
+                      Text(
+                        transaction.category,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -121,9 +130,13 @@ class TransactionDetailsScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
                         SizedBox(width: 8),
-                        Text(
-                          "Completed Successfully",
-                          style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+                        Flexible(
+                          child: Text(
+                            "Completed Successfully",
+                            style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -177,6 +190,7 @@ class TransactionDetailsScreen extends StatelessWidget {
   Widget _buildInfoItem(BuildContext context, IconData icon, String label, String value) {
     final colors = context.colors;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.all(10),
@@ -237,6 +251,7 @@ class TransactionDetailsScreen extends StatelessWidget {
           behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
             label: 'UNDO',
+            textColor: AppColors.primary,
             onPressed: () {
               provider.undoDeletion(transaction.id!);
             },

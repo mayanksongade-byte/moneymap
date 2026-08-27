@@ -47,10 +47,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BudgetProvider()..loadBudget()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
-        ChangeNotifierProxyProvider3<TransactionProvider, BudgetProvider, CurrencyProvider, NotificationProvider>(
+        ChangeNotifierProxyProvider4<TransactionProvider, BudgetProvider, CurrencyProvider, AppAuthProvider, NotificationProvider>(
           create: (_) => NotificationProvider()..loadSettings(),
-          update: (context, transactionProvider, budgetProvider, currencyProvider, notificationProvider) {
+          update: (context, transactionProvider, budgetProvider, currencyProvider, authProvider, notificationProvider) {
             if (notificationProvider != null) {
+              // 0. UPDATE USER NAME: For personalized notifications
+              notificationProvider.updateUserName(authProvider.user?.displayName?.split(' ').first);
+
               // 1. INSTANT BUDGET CHECK: When limit is crossed
               notificationProvider.checkBudgetStatus(
                 transactionProvider.monthlyExpense,

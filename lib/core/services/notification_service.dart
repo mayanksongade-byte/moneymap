@@ -58,7 +58,7 @@ class NotificationService {
 
       await _createNotificationChannel();
     } catch (e) {
-      if (kDebugMode) print('[NOTIFICATION] init error: $e');
+      if (kDebugMode) debugPrint('[NOTIFICATION] init error: $e');
     }
   }
 
@@ -140,7 +140,7 @@ class NotificationService {
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
     } catch (e) {
-      if (kDebugMode) print('[NOTIFICATION] Weekly Schedule error: $e');
+      if (kDebugMode) debugPrint('[NOTIFICATION] Weekly Schedule error: $e');
     }
   }
 

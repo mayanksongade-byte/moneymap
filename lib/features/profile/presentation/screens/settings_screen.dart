@@ -152,11 +152,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildGlobalNotificationTile(notificationProvider),
           if (notificationProvider.notificationsEnabled) ...[
             const SizedBox(height: 8),
+            _buildToggleTile(
+              icon: Icons.warning_amber_rounded,
+              title: "Budget Alerts",
+              subtitle: "Get notified when you approach or exceed budget limits",
+              value: notificationProvider.budgetAlertsEnabled,
+              onChanged: (v) => notificationProvider.setBudgetAlertsEnabled(v),
+            ),
+            _buildToggleTile(
+              icon: Icons.alarm_rounded,
+              title: "Reminders",
+              subtitle: "Daily morning and evening tracking reminders",
+              value: notificationProvider.remindersEnabled,
+              onChanged: (v) => notificationProvider.setRemindersEnabled(v),
+            ),
+            _buildToggleTile(
+              icon: Icons.receipt_long_rounded,
+              title: "Transaction Updates",
+              subtitle: "Confirmations for added or edited transactions",
+              value: notificationProvider.transactionUpdatesEnabled,
+              onChanged: (v) => notificationProvider.setTransactionUpdatesEnabled(v),
+            ),
+            _buildToggleTile(
+              icon: Icons.sync_problem_rounded,
+              title: "Sync Errors",
+              subtitle: "Alerts when data synchronization fails",
+              value: notificationProvider.syncErrorsEnabled,
+              onChanged: (v) => notificationProvider.setSyncErrorsEnabled(v),
+            ),
+            const SizedBox(height: 12),
+            _buildSectionLabel("Schedule"),
             _buildReminderTile(
               context,
               icon: Icons.wb_sunny_outlined,
               title: "Morning Reminder",
-              isEnabled: notificationProvider.morningEnabled,
+              isEnabled: notificationProvider.morningEnabled && notificationProvider.remindersEnabled,
               time: notificationProvider.morningTime,
               onToggle: (v) => notificationProvider.setMorningEnabled(v),
               onTimeTap: () => _selectTime(context, notificationProvider, true),
@@ -165,7 +195,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context,
               icon: Icons.nightlight_outlined,
               title: "Evening Reminder",
-              isEnabled: notificationProvider.eveningEnabled,
+              isEnabled: notificationProvider.eveningEnabled && notificationProvider.remindersEnabled,
               time: notificationProvider.eveningTime,
               onToggle: (v) => notificationProvider.setEveningEnabled(v),
               onTimeTap: () => _selectTime(context, notificationProvider, false),
@@ -236,6 +266,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onChanged: (v) {
             HapticFeedback.selectionClick();
             provider.setNotificationsEnabled(v);
+          },
+          activeColor: AppColors.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final colors = context.colors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border.withValues(alpha: 0.3)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 20),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: colors.textPrimary,
+            fontSize: 14,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 11, color: colors.textSecondary),
+        ),
+        trailing: Switch(
+          value: value,
+          onChanged: (v) {
+            HapticFeedback.selectionClick();
+            onChanged(v);
           },
           activeColor: AppColors.primary,
         ),

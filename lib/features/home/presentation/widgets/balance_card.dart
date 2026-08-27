@@ -133,19 +133,25 @@ class _BalanceCardState extends State<BalanceCard>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Total Balance',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'Total Balance',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.all(6),
@@ -163,23 +169,29 @@ class _BalanceCardState extends State<BalanceCard>
                   // Balance Row
                   Row(
                     children: [
-                      AnimatedBuilder(
-                        animation: _c,
-                        builder: (context, _) {
-                          final val = _fromBalance + (widget.balance - _fromBalance) * Curves.easeOutCubic.transform(_c.value);
-                          final balanceText = _hideBalance 
-                              ? '${currency.currencySymbol} ••••••' 
-                              : currency.format(val, showDecimals: true);
-                          return Text(
-                            balanceText,
-                            style: const TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              letterSpacing: -0.5,
-                            ),
-                          );
-                        },
+                      Flexible(
+                        child: AnimatedBuilder(
+                          animation: _c,
+                          builder: (context, _) {
+                            final val = _fromBalance + (widget.balance - _fromBalance) * Curves.easeOutCubic.transform(_c.value);
+                            final balanceText = _hideBalance 
+                                ? '${currency.currencySymbol} ••••••' 
+                                : currency.format(val, showDecimals: true);
+                            return FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                balanceText,
+                                style: const TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                       const SizedBox(width: 10),
                       GestureDetector(
@@ -218,12 +230,16 @@ class _BalanceCardState extends State<BalanceCard>
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          '${isPositiveChange ? '+' : ''}${currency.format(monthlyChange)} this month',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            '${isPositiveChange ? '+' : ''}${currency.format(monthlyChange)} this month',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -246,6 +262,7 @@ class _BalanceCardState extends State<BalanceCard>
                       Container(
                         height: 32,
                         width: 1,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
                         color: Colors.white.withOpacity(0.15),
                       ),
                       Expanded(
@@ -266,12 +283,16 @@ class _BalanceCardState extends State<BalanceCard>
                     children: [
                       Icon(Icons.access_time_rounded, size: 12, color: Colors.white.withOpacity(0.4)),
                       const SizedBox(width: 6),
-                      Text(
-                        'Updated $_updatedText',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withOpacity(0.4),
-                          fontWeight: FontWeight.w400,
+                      Flexible(
+                        child: Text(
+                          'Updated $_updatedText',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.4),
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -302,24 +323,31 @@ class _BalanceCardState extends State<BalanceCard>
               child: Icon(icon, size: 12, color: iconColor),
             ),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        Text(
-          currency.format(amount, showDecimals: true),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            currency.format(amount, showDecimals: true),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],

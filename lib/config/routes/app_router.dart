@@ -30,27 +30,45 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.onboarding,
-        builder: (context, state) => const OnboardingScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const OnboardingScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.auth,
-        builder: (context, state) => const AuthSelectScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const AuthSelectScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const LoginScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const RegisterScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.forgotPassword,
-        builder: (context, state) => const ForgotPasswordScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const ForgotPasswordScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.verifyEmail,
-        builder: (context, state) => const VerifyEmailScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const VerifyEmailScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.home,
@@ -58,32 +76,47 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.addTransaction,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          return AddTransactionScreen(
-            transactionToEdit: extra?['transactionToEdit'] as TransactionModel?,
-            initialType: extra?['initialType'] as String?,
+          return _slideUpTransitionPage(
+            state: state,
+            child: AddTransactionScreen(
+              transactionToEdit: extra?['transactionToEdit'] as TransactionModel?,
+              initialType: extra?['initialType'] as String?,
+            ),
           );
         },
       ),
       GoRoute(
         path: AppRoutes.allTransactions,
-        builder: (context, state) => const AllTransactionsScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const AllTransactionsScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.transactionDetails,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final transaction = state.extra as TransactionModel;
-          return TransactionDetailsScreen(transaction: transaction);
+          return _slideUpTransitionPage(
+            state: state,
+            child: TransactionDetailsScreen(transaction: transaction),
+          );
         },
       ),
       GoRoute(
         path: AppRoutes.budget,
-        builder: (context, state) => const BudgetScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const BudgetScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.categoryManagement,
-        builder: (context, state) => const CategoryManagementScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const CategoryManagementScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.statistics,
@@ -95,15 +128,48 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.settings,
-        builder: (context, state) => const SettingsScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const SettingsScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.notifications,
-        builder: (context, state) => const NotificationScreen(),
+        pageBuilder: (context, state) => _slideUpTransitionPage(
+          state: state,
+          child: const NotificationScreen(),
+        ),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
       body: Center(child: Text('No route defined for ${state.uri}')),
     ),
   );
+
+  static CustomTransitionPage<T> _slideUpTransitionPage<T>({
+    required GoRouterState state,
+    required Widget child,
+  }) {
+    return CustomTransitionPage<T>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 300),
+      reverseTransitionDuration: const Duration(milliseconds: 300),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOut,
+            )),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
 }

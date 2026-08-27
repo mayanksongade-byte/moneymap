@@ -12,7 +12,7 @@ const List<String> _emojiChoices = [
   // --- FOOD & DINING (restaurants, eating out, snacks) ---
   '🍔', '🍟', '🍕', '🌭', '🥪', '🌮', '🌯', '🥗', '🥘', '🍲', '🍜', '🍣', '🍱',
   '🍛', '🥟', '🍳',
-  '🥞', '🥓', '🍗', '🍖', '🥨', '🥐', '🍞', '🧀', '🍿', '🍦', '🍧', '🍨', '🍩',
+ '🥓', '🍗', '🍖', '🥨', '🥐', '🍞', '🧀', '🍿', '🍦', '🍧', '🍨', '🍩',
   '🍪', '🎂', '🍰',
   '🧁', '🍫', '🍭', '🍯', '☕', '🍵', '🍺', '🍷', '🥃', '🍸', '🥤', '🧃', '🧋',
 
@@ -201,11 +201,15 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
               child: Text(category.icon, style: const TextStyle(fontSize: 24)),
             ),
             const SizedBox(height: 10),
-            Text(category.name,
-                style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: colors.textPrimary)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(category.name,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary)),
+            ),
             Text(
               category.type == 'income'
                   ? 'Income category'
@@ -296,12 +300,23 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
             .where((c) => c.name.toLowerCase().contains(_query.toLowerCase()))
             .toList();
 
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: _buildGridState(context, provider, categories, all),
+    );
+  }
+
+  Widget _buildGridState(BuildContext context, CategoryProvider provider, List<CategoryModel> categories, List<CategoryModel> all) {
     if (provider.isLoading && all.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        key: ValueKey('categories_loading'),
+        child: CircularProgressIndicator(),
+      );
     }
 
     if (categories.isEmpty) {
       return _EmptyState(
+        key: const ValueKey('categories_empty'),
         icon:
             _query.isEmpty ? Icons.category_outlined : Icons.search_off_rounded,
         title: _query.isEmpty ? 'No categories yet' : 'Nothing matches',
@@ -312,6 +327,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
     }
 
     return GridView.builder(
+      key: const ValueKey('categories_data'),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -374,15 +390,21 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Categories',
-                              style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: colors.textPrimary)),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text('Categories',
+                                style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textPrimary)),
+                          ),
                           Text(
                             '${expenseCount + incomeCount} total \u00b7 organize your spending',
                             style: TextStyle(
                                 fontSize: 12, color: colors.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -520,9 +542,14 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 14, color: color)),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(label,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 14, color: color)),
+                ),
+              ),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -580,15 +607,20 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
                 children: [
                   const Icon(Icons.add_rounded, color: Colors.white),
                   const SizedBox(width: 8),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Text(
-                      'Add ${isIncome ? 'Income' : 'Expense'} Category',
-                      key: ValueKey(isIncome),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14.5),
+                  Flexible(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Add ${isIncome ? 'Income' : 'Expense'} Category',
+                          key: ValueKey(isIncome),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.5),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -677,7 +709,7 @@ class _CategoryTileState extends State<_CategoryTile> {
             children: [
               Center(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
                       width: 46,
@@ -695,15 +727,18 @@ class _CategoryTileState extends State<_CategoryTile> {
                     const SizedBox(height: 9),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Text(
-                        widget.category.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 11.5,
-                            color: colors.textPrimary,
-                            fontWeight: FontWeight.w600),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          widget.category.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
                   ],
@@ -752,7 +787,7 @@ class _EmptyState extends StatelessWidget {
   final String title;
   final String subtitle;
   const _EmptyState(
-      {required this.icon, required this.title, required this.subtitle});
+      {required this.icon, required this.title, required this.subtitle, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -773,11 +808,14 @@ class _EmptyState extends StatelessWidget {
               child: Icon(icon, size: 36, color: colors.textDisabled),
             ),
             const SizedBox(height: 16),
-            Text(title,
-                style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(title,
+                  style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700)),
+            ),
             const SizedBox(height: 6),
             Text(subtitle,
                 textAlign: TextAlign.center,
@@ -895,11 +933,15 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('New Category',
-                        style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.bold,
-                            color: colors.textPrimary)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('New Category',
+                          style: TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.bold,
+                              color: colors.textPrimary)),
+                    ),
                     const SizedBox(height: 4),
                     Text('Pick an icon, colour and name',
                         style: TextStyle(
@@ -939,6 +981,7 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                                     fontWeight: FontWeight.w700,
                                     color: colors.textPrimary)),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 9, vertical: 4),
@@ -1114,11 +1157,13 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                               height: 22,
                               child: CircularProgressIndicator(
                                   color: Colors.white, strokeWidth: 2.5))
-                          : const Text('Create Category',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16)),
+                          : FittedBox(
+                              child: const Text('Create Category',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16)),
+                            ),
                     ),
                   ),
                 ),
@@ -1141,11 +1186,16 @@ class _Label extends StatelessWidget {
     final colors = context.colors;
     return Row(
       children: [
-        Text(text,
-            style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: colors.textPrimary)),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: colors.textPrimary)),
+          ),
+        ),
         if (trailing != null) ...[
           const SizedBox(width: 8),
           Container(
@@ -1177,19 +1227,22 @@ class _SegToggle extends StatelessWidget {
           onTap: () => onChanged(value),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
             decoration: BoxDecoration(
               color: active ? c.withValues(alpha: .12) : colors.surfaceVariant,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: active ? c : Colors.transparent, width: 1.6),
             ),
-            child: Text(label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: active ? c : colors.textSecondary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: active ? c : colors.textSecondary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15)),
+            ),
           ),
         ),
       );

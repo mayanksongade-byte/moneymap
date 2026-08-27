@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../services/notification_service.dart' hide debugPrint;
 import '../../features/home/data/models/transaction_model.dart';
@@ -8,13 +11,21 @@ import '../models/notification_history_model.dart';
 
 class NotificationProvider extends ChangeNotifier {
   final NotificationService _notificationService = NotificationService();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
+  // Settings
   bool _notificationsEnabled = true;
   bool _morningEnabled = true;
   TimeOfDay _morningTime = const TimeOfDay(hour: 8, minute: 0);
 
   bool _eveningEnabled = true;
   TimeOfDay _eveningTime = const TimeOfDay(hour: 20, minute: 0);
+
+  // Notification Type Toggles (Part B.4)
+  bool _budgetAlertsEnabled = true;
+  bool _remindersEnabled = true;
+  bool _transactionUpdatesEnabled = true;
+  bool _syncErrorsEnabled = true;
 
   // Budget alert tracking
   String _lastBudgetAlertMonth = ''; 
@@ -30,15 +41,30 @@ class NotificationProvider extends ChangeNotifier {
   // Track which IDs have been handled (added or deleted) so they don't reappear
   Set<String> _handledIds = {};
 
+  // Debounce/Change detection (Part A.3)
+  double? _lastCheckedExpense;
+  double? _lastCheckedLimit;
+  int? _lastTransactionCount;
+  Timer? _debounceTimer;
+
   // Cache for initial check
   double? _pendingExpense;
   double? _pendingLimit;
+
+  // User info for personalized messages
+  String? _userName;
 
   bool get notificationsEnabled => _notificationsEnabled;
   bool get morningEnabled => _morningEnabled;
   TimeOfDay get morningTime => _morningTime;
   bool get eveningEnabled => _eveningEnabled;
   TimeOfDay get eveningTime => _eveningTime;
+
+  // Type Getters
+  bool get budgetAlertsEnabled => _budgetAlertsEnabled;
+  bool get remindersEnabled => _remindersEnabled;
+  bool get transactionUpdatesEnabled => _transactionUpdatesEnabled;
+  bool get syncErrorsEnabled => _syncErrorsEnabled;
 
   Future<void> loadSettings() async {
     try {
@@ -56,6 +82,12 @@ class NotificationProvider extends ChangeNotifier {
         minute: prefs.getInt('evening_reminder_minute') ?? 0,
       );
 
+      // Load Type Toggles
+      _budgetAlertsEnabled = prefs.getBool('budget_alerts_enabled') ?? true;
+      _remindersEnabled = prefs.getBool('reminders_enabled') ?? true;
+      _transactionUpdatesEnabled = prefs.getBool('transaction_updates_enabled') ?? true;
+      _syncErrorsEnabled = prefs.getBool('sync_errors_enabled') ?? true;
+
       _lastBudgetAlertMonth = prefs.getString('last_budget_alert_month') ?? '';
       _sent80Alert = prefs.getBool('sent_80_alert') ?? false;
       _sent100Alert = prefs.getBool('sent_100_alert') ?? false;
@@ -65,9 +97,29 @@ class NotificationProvider extends ChangeNotifier {
         await _resetBudgetAlerts(currentMonth);
       }
 
-      // Load handled IDs
-      final List<String> handledList = prefs.getStringList('handled_notification_ids') ?? [];
-      _handledIds = handledList.toSet();
+      // Load handled IDs (from Secure Storage now)
+      String? handledJson;
+      try {
+        handledJson = await _secureStorage.read(key: 'handled_notification_ids');
+      } catch (e) {
+        if (kDebugMode) debugPrint('Error reading handled_notification_ids from secure storage: $e');
+      }
+
+      if (handledJson != null) {
+        _handledIds = Set<String>.from(jsonDecode(handledJson));
+      } else {
+        // Migration from SharedPreferences (Part A.1)
+        final List<String> handledList = prefs.getStringList('handled_notification_ids') ?? [];
+        if (handledList.isNotEmpty) {
+          _handledIds = handledList.toSet();
+          try {
+            await _secureStorage.write(key: 'handled_notification_ids', value: jsonEncode(_handledIds.toList()));
+            await prefs.remove('handled_notification_ids');
+          } catch (e) {
+            if (kDebugMode) debugPrint('Error writing migrated handled_notification_ids to secure storage: $e');
+          }
+        }
+      }
 
       await _loadHistory(prefs);
       
@@ -82,36 +134,71 @@ class NotificationProvider extends ChangeNotifier {
       _applyScheduling();
       notifyListeners();
     } catch (e) {
-      debugPrint('Error loading settings: $e');
+      if (kDebugMode) debugPrint('Error loading settings: $e');
     }
   }
 
   // --- HISTORY MANAGEMENT ---
 
   Future<void> _loadHistory(SharedPreferences prefs) async {
-    final String? historyJson = prefs.getString('notification_history');
+    // Attempt to load from Secure Storage (Part A.1)
+    String? historyJson;
+    try {
+      historyJson = await _secureStorage.read(key: 'notification_history');
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error reading notification_history from secure storage: $e');
+    }
+    
+    // Migration from SharedPreferences
+    if (historyJson == null) {
+      historyJson = prefs.getString('notification_history');
+      if (historyJson != null) {
+        try {
+          await _secureStorage.write(key: 'notification_history', value: historyJson);
+          await prefs.remove('notification_history');
+        } catch (e) {
+          if (kDebugMode) debugPrint('Error writing migrated notification_history to secure storage: $e');
+        }
+      }
+    }
+
     if (historyJson != null) {
       try {
         final List<dynamic> decoded = jsonDecode(historyJson);
         _history = decoded.map((item) => NotificationHistoryModel.fromJson(item)).toList();
         _history.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       } catch (e) {
-        debugPrint('Error decoding notification history: $e');
+        if (kDebugMode) debugPrint('Error decoding notification history: $e');
         _history = [];
       }
     }
   }
 
   Future<void> _saveHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String encoded = jsonEncode(_history.map((n) => n.toJson()).toList());
-    await prefs.setString('notification_history', encoded);
-    
-    // Also save handled IDs
-    await prefs.setStringList('handled_notification_ids', _handledIds.toList());
+    try {
+      final String encoded = jsonEncode(_history.map((n) => n.toJson()).toList());
+      await _secureStorage.write(key: 'notification_history', value: encoded);
+      
+      // Also save handled IDs
+      await _secureStorage.write(key: 'handled_notification_ids', value: jsonEncode(_handledIds.toList()));
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error saving history to secure storage: $e');
+    }
   }
 
   void addNotification(NotificationHistoryModel notification) {
+    if (!_notificationsEnabled || !_isInitialized) return;
+    
+    // Check type-specific settings (Part B.4)
+    if (notification.type == 'budgetAlert' && !_budgetAlertsEnabled) return;
+    if (notification.type == 'reminder' && !_remindersEnabled) return;
+    if (notification.type == 'transactionAdded' && !_transactionUpdatesEnabled) return;
+    if (notification.type == 'syncFailed' && !_syncErrorsEnabled) return;
+    
+    // Support legacy type names during transition
+    if ((notification.type == 'budget_alert' || notification.type == 'budget_exceeded') && !_budgetAlertsEnabled) return;
+    if ((notification.type == 'morning_reminder' || notification.type == 'evening_reminder' || notification.type == 'weekly_summary') && !_remindersEnabled) return;
+
     // Avoid adding if it's already in history or has been handled/deleted before
     if (_handledIds.contains(notification.id)) return;
     
@@ -152,10 +239,18 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateUserName(String? name) {
+    _userName = name;
+  }
+
   // --- SMART NOTIFICATION LOGIC ---
 
   void updateSmartInsights(List<TransactionModel> transactions, String symbol) {
-    if (!_notificationsEnabled || !_isInitialized) return;
+    if (!_notificationsEnabled || !_isInitialized || !_remindersEnabled) return;
+
+    // Change detection (Part A.3)
+    if (_lastTransactionCount == transactions.length) return;
+    _lastTransactionCount = transactions.length;
 
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
@@ -198,7 +293,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void updateDailyActivityInsight(List<TransactionModel> transactions) {
-    if (!_notificationsEnabled || !_isInitialized || !_eveningEnabled) return;
+    if (!_notificationsEnabled || !_isInitialized || !_eveningEnabled || !_remindersEnabled) return;
 
     final now = DateTime.now();
     final todayLogs = transactions.where((t) => 
@@ -225,7 +320,47 @@ class NotificationProvider extends ChangeNotifier {
   // --- ACTIONS & TRIGGERS ---
 
   void notifyTransactionAdded(TransactionModel transaction, {required String formattedAmount, required String formattedBalance}) {
-    return;
+    if (!_notificationsEnabled || !_transactionUpdatesEnabled || !_isInitialized) return;
+
+    final title = 'Transaction Added ✅';
+    final body = "Success! You added ${transaction.category} for $formattedAmount. Your new balance is $formattedBalance. 💰";
+    
+    // We only add to history, usually no system banner for every transaction unless requested
+    // But I'll add a system notification too for professionalism if it's the first time
+    _notificationService.showBudgetAlert(
+      id: transaction.id.hashCode,
+      title: title,
+      body: body,
+    );
+
+    addNotification(NotificationHistoryModel(
+      id: 'tx_${transaction.id}_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'transactionAdded',
+      title: title,
+      message: body,
+      createdAt: DateTime.now(),
+    ));
+  }
+
+  void notifySyncFailed(String error) {
+    if (!_notificationsEnabled || !_syncErrorsEnabled || !_isInitialized) return;
+
+    final title = 'Sync Failed ⚠️';
+    final body = "We couldn't sync your data: $error. Please check your connection. 🔄";
+    
+    _notificationService.showBudgetAlert(
+      id: 3000,
+      title: title,
+      body: body,
+    );
+
+    addNotification(NotificationHistoryModel(
+      id: 'sync_fail_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'syncFailed',
+      title: title,
+      message: body,
+      createdAt: DateTime.now(),
+    ));
   }
 
   void checkBudgetStatus(double currentExpense, double? limit, {String currencySymbol = '₹'}) {
@@ -235,7 +370,12 @@ class NotificationProvider extends ChangeNotifier {
       return;
     }
 
-    if (!_notificationsEnabled || limit == null || limit <= 0) return;
+    if (!_notificationsEnabled || !_budgetAlertsEnabled || limit == null || limit <= 0) return;
+
+    // Debounce/Change detection (Part A.3)
+    if (_lastCheckedExpense == currentExpense && _lastCheckedLimit == limit) return;
+    _lastCheckedExpense = currentExpense;
+    _lastCheckedLimit = limit;
 
     final currentMonth = "${DateTime.now().year}-${DateTime.now().month}";
     if (_lastBudgetAlertMonth != currentMonth) {
@@ -283,7 +423,7 @@ class NotificationProvider extends ChangeNotifier {
 
     addNotification(NotificationHistoryModel(
       id: 'budget_80_${DateTime.now().year}_${DateTime.now().month}',
-      type: 'budget_alert',
+      type: 'budgetAlert',
       title: title,
       message: body,
       createdAt: DateTime.now(),
@@ -312,7 +452,7 @@ class NotificationProvider extends ChangeNotifier {
 
     addNotification(NotificationHistoryModel(
       id: 'budget_100_${DateTime.now().year}_${DateTime.now().month}',
-      type: 'budget_exceeded',
+      type: 'budgetAlert',
       title: title,
       message: body,
       createdAt: DateTime.now(),
@@ -325,6 +465,35 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   // --- SETTINGS ---
+
+  Future<void> setBudgetAlertsEnabled(bool value) async {
+    _budgetAlertsEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('budget_alerts_enabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setRemindersEnabled(bool value) async {
+    _remindersEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('reminders_enabled', value);
+    _applyScheduling();
+    notifyListeners();
+  }
+
+  Future<void> setTransactionUpdatesEnabled(bool value) async {
+    _transactionUpdatesEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('transaction_updates_enabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setSyncErrorsEnabled(bool value) async {
+    _syncErrorsEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sync_errors_enabled', value);
+    notifyListeners();
+  }
 
   Future<void> setNotificationsEnabled(bool value) async {
     _notificationsEnabled = value;
@@ -370,18 +539,23 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void _applyScheduling() {
-    if (!_notificationsEnabled) {
+    if (!_notificationsEnabled || !_remindersEnabled) {
       _notificationService.cancelReminder(NotificationService.morningReminderId);
       _notificationService.cancelReminder(NotificationService.eveningReminderId);
       _notificationService.cancelReminder(NotificationService.weeklySummaryId);
       return;
     }
     if (_morningEnabled) {
+      final greetingTitle = _userName != null && _userName!.isNotEmpty 
+          ? 'Good morning, $_userName 👋' 
+          : 'Good morning 👋';
+          
       _notificationService.scheduleMorningReminder(
         _morningTime.hour, 
         _morningTime.minute,
-        title: 'Good morning, Mayank 👋',
-        body: 'Start your day with clarity. Track your expenses and stay on top of your money.',
+        title: greetingTitle,
+        body: 'Start your '
+            'day with clarity. Track your expenses and stay on top of your money.',
       );
     }
     if (_eveningEnabled) {
@@ -400,16 +574,20 @@ class NotificationProvider extends ChangeNotifier {
     final now = DateTime.now();
     
     // Check Morning Reminder
-    if (_morningEnabled) {
+    if (_morningEnabled && _remindersEnabled) {
       final morningDt = DateTime(now.year, now.month, now.day, _morningTime.hour, _morningTime.minute);
       if (now.isAfter(morningDt)) {
         final id = 'morning_${now.year}_${now.month}_${now.day}';
         // Only add if it's NOT already in handled list
         if (!_handledIds.contains(id)) {
+          final greetingTitle = _userName != null && _userName!.isNotEmpty 
+              ? 'Good morning, $_userName 👋' 
+              : 'Good morning 👋';
+
           addNotification(NotificationHistoryModel(
             id: id,
-            type: 'morning_reminder',
-            title: 'Good morning, Mayank 👋',
+            type: 'reminder',
+            title: greetingTitle,
             message: 'Start your day with clarity. Track your expenses and stay on top of your money.',
             createdAt: morningDt,
           ));
@@ -418,7 +596,7 @@ class NotificationProvider extends ChangeNotifier {
     }
 
     // Check Evening Reminder
-    if (_eveningEnabled) {
+    if (_eveningEnabled && _remindersEnabled) {
       final eveningDt = DateTime(now.year, now.month, now.day, _eveningTime.hour, _eveningTime.minute);
       if (now.isAfter(eveningDt)) {
         final id = 'evening_${now.year}_${now.month}_${now.day}';
@@ -426,7 +604,7 @@ class NotificationProvider extends ChangeNotifier {
         if (!_handledIds.contains(id)) {
           addNotification(NotificationHistoryModel(
             id: id,
-            type: 'evening_reminder',
+            type: 'reminder',
             title: 'Quick money check 💰',
             message: "Before the day ends, take a moment to record today's expenses.",
             createdAt: eveningDt,
@@ -445,4 +623,5 @@ class NotificationProvider extends ChangeNotifier {
     await prefs.setBool('sent_80_alert', false);
     await prefs.setBool('sent_100_alert', false);
   }
+
 }

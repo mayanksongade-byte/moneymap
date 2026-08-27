@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/app_constants.dart';
 
-enum AuthStatus { authenticated, unverified, unauthenticated, guest }
+enum AuthStatus { initial, authenticated, unverified, unauthenticated, guest }
+
 
 class AppAuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -12,8 +15,10 @@ class AppAuthProvider extends ChangeNotifier {
   User? _user;
   bool _isLoading = false;
   String? _error;
-  AuthStatus _status = AuthStatus.unauthenticated;
+  AuthStatus _status = AuthStatus.initial;
   StreamSubscription<User?>? _authSubscription;
+  bool _onboardingComplete = false;
+  bool _isSettingsLoaded = false;
 
   // Getters
   User? get user => _user;
@@ -21,23 +26,137 @@ class AppAuthProvider extends ChangeNotifier {
   String? get error => _error;
   AuthStatus get status => _status;
   bool get isGuest => _user != null && _user!.isAnonymous;
+  bool get onboardingComplete => _onboardingComplete;
+  bool get isInitialized => _status != AuthStatus.initial && _isSettingsLoaded;
 
   AppAuthProvider() {
-    // Listening to userChanges() instead of authStateChanges() 
-    // to capture profile updates like displayName immediately.
+    _init();
+  }
+
+  Future<void> _init() async {
+    // 1. Load onboarding status from storage
+    await _loadOnboardingStatus();
+
+    // 2. Check for existing session immediately to avoid flicker/delay
+    final currentUser = _auth.currentUser;
+    print('DEBUG-INIT: currentUser on cold start = ${currentUser?.uid}, isAnonymous=${currentUser?.isAnonymous}, email=${currentUser?.email}');
+    
+    if (currentUser != null) {
+      _user = currentUser;
+      if (currentUser.isAnonymous) {
+        _status = AuthStatus.guest;
+      } else if (!currentUser.emailVerified) {
+        _status = AuthStatus.unverified;
+      } else {
+        _status = AuthStatus.authenticated;
+      }
+      _markOnboardingComplete();
+    } else {
+      // FALLBACK: currentUser is null - this can happen on Samsung devices due to
+      // an Android Keystore reliability issue affecting Firebase's encrypted token
+      // storage. Try to silently restore the session via Google Sign-In's own
+      // credential cache (separate from Firebase's Keystore-based storage) before
+      // concluding the user is logged out.
+      try {
+        final googleUser = await _googleSignIn.signInSilently();
+        if (googleUser != null) {
+          final googleAuth = await googleUser.authentication;
+          final credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          final result = await _auth.signInWithCredential(credential);
+          if (result.user != null) {
+            _user = result.user;
+            _status = AuthStatus.authenticated;
+            _markOnboardingComplete();
+            print('DEBUG-INIT: Session restored via Google Silent Sign-In fallback');
+          } else {
+            _status = AuthStatus.unauthenticated;
+          }
+        } else {
+          _status = AuthStatus.unauthenticated;
+        }
+      } catch (e) {
+        // Silent restore failed - genuinely not logged in (or no network for
+        // Google's silent check), fall back to unauthenticated.
+        print('DEBUG-INIT: Google silent restore fallback failed: $e');
+        _status = AuthStatus.unauthenticated;
+      }
+    }
+
+    final Completer<void> authInitialCompleter = Completer<void>();
+
+    // 3. Listen for auth changes and wait for the settled state.
     _authSubscription = _auth.userChanges().listen((user) {
+      print('DEBUG-STREAM: userChanges() emitted user=${user?.uid}, isAnonymous=${user?.isAnonymous}, email=${user?.email}');
+      
+      // If we already have a valid user from currentUser, and the stream sends null 
+      // immediately after start (common in Firebase), we ignore it briefly 
+      // UNLESS the stream consistently says null.
+      if (user == null && _user != null && !authInitialCompleter.isCompleted) {
+        print('DEBUG-STREAM: Ignoring initial null as we have a valid currentUser');
+        return;
+      }
+
+      if (_user?.uid == user?.uid && _status != AuthStatus.initial) {
+        if (!authInitialCompleter.isCompleted) authInitialCompleter.complete();
+        return;
+      }
+
       _user = user;
       if (user == null) {
         _status = AuthStatus.unauthenticated;
       } else if (user.isAnonymous) {
         _status = AuthStatus.guest;
+        _markOnboardingComplete();
       } else if (!user.emailVerified) {
         _status = AuthStatus.unverified;
       } else {
         _status = AuthStatus.authenticated;
+        _markOnboardingComplete();
+      }
+
+      if (!authInitialCompleter.isCompleted) {
+        authInitialCompleter.complete();
       }
       notifyListeners();
     });
+
+    // 4. Wait for the real settled state.
+    try {
+      // If we already found a user via currentUser, we can be more confident,
+      // but we still wait for the stream to confirm or time out.
+      await authInitialCompleter.future.timeout(
+        Duration(seconds: currentUser != null ? 2 : 4),
+      );
+    } catch (e) {
+      if (_status == AuthStatus.initial) {
+        _status = AuthStatus.unauthenticated;
+      }
+    }
+
+    _isSettingsLoaded = true;
+    notifyListeners();
+  }
+
+  Future<void> _loadOnboardingStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    _onboardingComplete = prefs.getBool(AppConstants.keyOnboardingComplete) ?? false;
+    notifyListeners();
+  }
+
+  Future<void> completeOnboarding() async {
+    _onboardingComplete = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(AppConstants.keyOnboardingComplete, true);
+    notifyListeners();
+  }
+
+  Future<void> _markOnboardingComplete() async {
+    if (!_onboardingComplete) {
+      await completeOnboarding();
+    }
   }
 
   Future<void> refreshUser() async {
@@ -156,6 +275,7 @@ class AppAuthProvider extends ChangeNotifier {
       );
 
       final result = await _auth.signInWithCredential(credential);
+      print('DEBUG-GOOGLE: Signed in successfully. UID=${result.user?.uid}, isAnonymous=${result.user?.isAnonymous}, providerData=${result.user?.providerData.map((p) => p.providerId).toList()}');
       _user = result.user;
       _status = AuthStatus.authenticated;
 

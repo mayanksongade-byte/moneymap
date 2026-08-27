@@ -122,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
           label: 'UNDO',
+          textColor: AppColors.primary,
           onPressed: () {
             provider.undoDeletion(t.id!);
           },
@@ -163,118 +164,133 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             final allTransactions = txProvider.transactions;
             final recentTransactions = allTransactions.take(5).toList();
             
-            // Error handling for initial load
-            if (txProvider.error != null && allTransactions.isEmpty && !txProvider.isLoading) {
-              return CommonErrorWidget(
-                message: 'Couldn\'t load your data. Please check your connection.',
-                onRetry: _retry,
-              );
-            }
-
-            final isInitialLoad = (txProvider.isLoading || !_settled) && allTransactions.isEmpty;
-
-            if (isInitialLoad) {
-              return _buildSkeletonLoader(context);
-            }
-
-            return CustomScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              slivers: [
-                _buildPremiumHeader(context),
-                SliverToBoxAdapter(
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 12),
-                          
-                          // Guest Warning Banner
-                          if (context.watch<AppAuthProvider>().isGuest) ...[
-                            _buildGuestWarning(context),
-                            const SizedBox(height: 12),
-                          ],
-
-                          RepaintBoundary(
-                            child: BalanceCard(
-                              key: ValueKey('balance_$_refreshTick'),
-                              balance: txProvider.balance,
-                              income: txProvider.totalIncome,
-                              expense: txProvider.totalExpense,
-                              lastUpdated: txProvider.lastRefreshedAt,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildCashFlowDashboard(context, txProvider),
-                          const SizedBox(height: 24),
-                          QuickActions(
-                            onIncomeTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'income'}),
-                            onExpenseTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'}),
-                            onBudgetTap: () => context.push(AppRoutes.budget),
-                            onAnalyticsTap: () => context.push(AppRoutes.statistics),
-                          ),
-                          const SizedBox(height: 40),
-                          _buildAnalyticsSnapshot(context, txProvider),
-                          const SizedBox(height: 32),
-                          if (budgetProvider.hasBudget) ...[
-                            _buildPremiumBudget(context, budgetProvider, txProvider.monthlyExpense),
-                            const SizedBox(height: 32),
-                          ],
-                          if (txProvider.monthlyTransactions.isNotEmpty) ...[
-                            _buildSpendingInsight(context, txProvider),
-                            const SizedBox(height: 12), 
-                          ],
-                          if (allTransactions.isNotEmpty)
-                            _buildSectionHeader(
-                              context,
-                              title: 'Recent Activity',
-                              actionLabel: 'View All',
-                              onAction: () => context.push(AppRoutes.allTransactions),
-                            ),
-                          if (allTransactions.isNotEmpty) const SizedBox(height: 4),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                if (allTransactions.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _buildEmptyState(context),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                    sliver: SliverList.builder(
-                      itemCount: recentTransactions.length,
-                      itemBuilder: (context, index) {
-                        final t = recentTransactions[index];
-                        return TransactionCard(
-                          id: t.id,
-                          category: t.category,
-                          note: t.note,
-                          amount: t.amount,
-                          type: t.type,
-                          date: formatRelativeDate(t.date),
-                          icon: t.icon,
-                          paymentMode: t.paymentMode,
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            context.push(AppRoutes.transactionDetails, extra: t);
-                          },
-                          onDelete: () => _handleDelete(t),
-                        );
-                      },
-                    ),
-                  ),
-              ],
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _buildCurrentState(context, txProvider, budgetProvider, allTransactions, recentTransactions),
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildCurrentState(
+      BuildContext context,
+      TransactionProvider txProvider,
+      BudgetProvider budgetProvider,
+      List<TransactionModel> allTransactions,
+      List<TransactionModel> recentTransactions,
+      ) {
+    // Error handling for initial load
+    if (txProvider.error != null && allTransactions.isEmpty && !txProvider.isLoading) {
+      return CommonErrorWidget(
+        key: const ValueKey('home_error'),
+        message: 'Couldn\'t load your data. Please check your connection.',
+        onRetry: _retry,
+      );
+    }
+
+    final isInitialLoad = (txProvider.isLoading || !_settled) && allTransactions.isEmpty;
+
+    if (isInitialLoad) {
+      return _buildSkeletonLoader(context);
+    }
+
+    return CustomScrollView(
+      key: const ValueKey('home_data'),
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      slivers: [
+        _buildPremiumHeader(context),
+        SliverToBoxAdapter(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  
+                  // Guest Warning Banner
+                  if (context.watch<AppAuthProvider>().isGuest) ...[
+                    _buildGuestWarning(context),
+                    const SizedBox(height: 12),
+                  ],
+
+                  RepaintBoundary(
+                    child: BalanceCard(
+                      key: ValueKey('balance_$_refreshTick'),
+                      balance: txProvider.balance,
+                      income: txProvider.totalIncome,
+                      expense: txProvider.totalExpense,
+                      lastUpdated: txProvider.lastRefreshedAt,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildCashFlowDashboard(context, txProvider),
+                  const SizedBox(height: 24),
+                  QuickActions(
+                    onIncomeTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'income'}),
+                    onExpenseTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'}),
+                    onBudgetTap: () => context.push(AppRoutes.budget),
+                    onAnalyticsTap: () => context.push(AppRoutes.statistics),
+                  ),
+                  const SizedBox(height: 40),
+                  _buildAnalyticsSnapshot(context, txProvider),
+                  const SizedBox(height: 32),
+                  if (budgetProvider.hasBudget) ...[
+                    _buildPremiumBudget(context, budgetProvider, txProvider.monthlyExpense),
+                    const SizedBox(height: 32),
+                  ],
+                  if (txProvider.monthlyTransactions.isNotEmpty) ...[
+                    _buildSpendingInsight(context, txProvider),
+                    const SizedBox(height: 12), 
+                  ],
+                  if (allTransactions.isNotEmpty)
+                    _buildSectionHeader(
+                      context,
+                      title: 'Recent Activity',
+                      actionLabel: 'View All',
+                      onAction: () => context.push(AppRoutes.allTransactions),
+                    ),
+                  if (allTransactions.isNotEmpty) const SizedBox(height: 4),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (allTransactions.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _buildEmptyState(context),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+            sliver: SliverList.builder(
+              itemCount: recentTransactions.length,
+              itemBuilder: (context, index) {
+                final t = recentTransactions[index];
+                return TransactionCard(
+                  id: t.id,
+                  category: t.category,
+                  note: t.note,
+                  amount: t.amount,
+                  type: t.type,
+                  date: formatRelativeDate(t.date),
+                  icon: t.icon,
+                  paymentMode: t.paymentMode,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    context.push(AppRoutes.transactionDetails, extra: t);
+                  },
+                  onDelete: () => _handleDelete(t),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 
@@ -342,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               visualDensity: VisualDensity.compact,
             ),
-            child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            child: FittedBox(child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
           ),
         ],
       ),
@@ -369,26 +385,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _getGreeting(),
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
+            Flexible(
+              child: Text(
+                _getGreeting(),
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              name,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
+            Flexible(
+              child: Text(
+                name,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -413,21 +435,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 if (hasUnread)
                   Positioned(
-                    top: 12,
-                    right: 12,
+                    top: 6,
+                    right: 6,
                     child: Container(
-                      width: 8,
-                      height: 8,
+                      padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Center(
+                        child: Text(
+                          notificationProvider.unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ),
               ],
             );
           },
-        ),
+        )
+        ,
         const SizedBox(width: 4),
         GestureDetector(
           onTap: () => context.push(AppRoutes.profile),
@@ -484,45 +520,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: (isPositive ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                      color: isPositive ? AppColors.success : AppColors.error,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'THIS MONTH',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: colors.textSecondary,
-                          letterSpacing: 0.5,
-                        ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: (isPositive ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
                       ),
-                      Text(
-                        '${isPositive ? '+' : ''}${currency.format(balance)}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: colors.textPrimary,
-                        ),
+                      child: Icon(
+                        isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                        color: isPositive ? AppColors.success : AppColors.error,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'THIS MONTH',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: colors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${isPositive ? '+' : ''}${currency.format(balance)}',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: colors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -555,14 +602,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final colors = context.colors;
     final currency = context.watch<CurrencyProvider>();
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          '$label  ',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.textSecondary),
+        Flexible(
+          child: Text(
+            '$label  ',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.textSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        Text(
-          currency.format(amount),
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            currency.format(amount),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color),
+          ),
         ),
       ],
     );
@@ -586,9 +641,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Spending Overview',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -0.5),
+            Expanded(
+              child: Text(
+                'Spending Overview',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -0.5),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             GestureDetector(
               onTap: () => context.push(AppRoutes.statistics),
@@ -630,9 +689,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    currency.format(spent),
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -1.0),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      currency.format(spent),
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -1.0),
+                    ),
                   ),
                   Text(
                     'spent this month',
@@ -716,9 +778,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   ],
                                 ),
                               ),
-                              Text(
-                                currency.format(entry.value),
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                flex: 0,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    currency.format(entry.value),
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -825,9 +894,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Monthly Budget',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colors.textPrimary, letterSpacing: 0.2),
+              Expanded(
+                child: Text(
+                  'Monthly Budget',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colors.textPrimary, letterSpacing: 0.2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -847,22 +920,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    currency.format(spent),
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
-                  ),
-                  Text(
-                    'of ${currency.format(limit)} spent',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        currency.format(spent),
+                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                      ),
+                    ),
+                    Text(
+                      'of ${currency.format(limit)} spent',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-              Text(
-                '${(percent * 100).toStringAsFixed(0)}%',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
+              const SizedBox(width: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '${(percent * 100).toStringAsFixed(0)}%',
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                ),
               ),
             ],
           ),
@@ -1007,9 +1091,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    currency.format(maxVal),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF8B5CF6)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      currency.format(maxVal),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF8B5CF6)),
+                    ),
                   ),
                   Text(
                     '$pct% of total',
@@ -1037,13 +1124,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: colors.textPrimary,
-            letterSpacing: -0.5,
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: colors.textPrimary,
+              letterSpacing: -0.5,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         TextButton(
@@ -1069,6 +1160,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildEmptyState(BuildContext context) {
     final colors = context.colors;
     return Center(
+      key: const ValueKey('home_empty'),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1106,6 +1198,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildSkeletonLoader(BuildContext context) {
     return SafeArea(
+      key: const ValueKey('home_loading'),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
         physics: const NeverScrollableScrollPhysics(),
@@ -1151,7 +1244,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ],
                   ),
                 ),
-                const RepaintBoundary(child: _ShimmerBox(width: 60, height: 14, radius: 4)),
+                const _ShimmerBox(width: 60, height: 14, radius: 4),
               ],
             ),
           )),

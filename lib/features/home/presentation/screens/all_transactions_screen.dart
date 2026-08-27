@@ -104,56 +104,79 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
         children: [
           _buildFilterTabs(colors, provider),
           Expanded(
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _buildSummaryGrid(colors, currency, filtered.length, totalIncome, totalExpense),
-                ),
-                if (filtered.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.search_off_rounded, size: 64, color: colors.textDisabled.withValues(alpha: 0.5)),
-                          const SizedBox(height: 16),
-                          Text('No transactions found', style: TextStyle(color: colors.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  for (var dateKey in sortedKeys) ...[
-                    SliverToBoxAdapter(
-                      child: _DateHeader(
-                        label: _formatDateHeader(grouped[dateKey]!.first.date),
-                        total: grouped[dateKey]!.fold<double>(0, (s, t) => s + (t.type == 'income' ? t.amount : -t.amount)),
-                        currency: currency,
-                        colors: colors,
-                      ),
-                    ),
-                    SliverList.builder(
-                      itemCount: grouped[dateKey]!.length,
-                      itemBuilder: (context, i) => _TransactionTile(
-                        transaction: grouped[dateKey]![i],
-                        currency: currency,
-                        colors: colors,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          context.push(AppRoutes.transactionDetails, extra: grouped[dateKey]![i]);
-                        },
-                      ),
-                    ),
-                  ],
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _buildBody(colors, currency, provider, filtered, grouped, sortedKeys, totalIncome, totalExpense),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody(
+    AppColorsExtension colors,
+    CurrencyProvider currency,
+    TransactionProvider provider,
+    List<TransactionModel> filtered,
+    Map<String, List<TransactionModel>> grouped,
+    List<String> sortedKeys,
+    double totalIncome,
+    double totalExpense,
+  ) {
+    if (provider.isLoading && provider.transactions.isEmpty) {
+      return Center(
+        key: const ValueKey('loading'),
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (filtered.isEmpty) {
+      return Center(
+        key: const ValueKey('empty'),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off_rounded, size: 64, color: colors.textDisabled.withValues(alpha: 0.5)),
+            const SizedBox(height: 16),
+            Text('No transactions found', style: TextStyle(color: colors.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      key: const ValueKey('data'),
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: _buildSummaryGrid(colors, currency, filtered.length, totalIncome, totalExpense),
+        ),
+        for (var dateKey in sortedKeys) ...[
+          SliverToBoxAdapter(
+            child: _DateHeader(
+              label: _formatDateHeader(grouped[dateKey]!.first.date),
+              total: grouped[dateKey]!.fold<double>(0, (s, t) => s + (t.type == 'income' ? t.amount : -t.amount)),
+              currency: currency,
+              colors: colors,
+            ),
+          ),
+          SliverList.builder(
+            itemCount: grouped[dateKey]!.length,
+            itemBuilder: (context, i) => _TransactionTile(
+              transaction: grouped[dateKey]![i],
+              currency: currency,
+              colors: colors,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                context.push(AppRoutes.transactionDetails, extra: grouped[dateKey]![i]);
+              },
+            ),
+          ),
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
     );
   }
 
@@ -212,7 +235,11 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('All Transactions', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('All Transactions', style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: -0.5)),
+                    ),
                     Text('Manage your financial history', style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
@@ -339,7 +366,7 @@ class _SegmentTab extends StatelessWidget {
             children: [
               Icon(icon, size: 14, color: selected ? Colors.white : colors.textSecondary),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: selected ? Colors.white : colors.textSecondary, fontWeight: FontWeight.bold, fontSize: 13)),
+              Flexible(child: FittedBox(child: Text(label, style: TextStyle(color: selected ? Colors.white : colors.textSecondary, fontWeight: FontWeight.bold, fontSize: 13)))),
             ],
           ),
         ),
@@ -413,9 +440,11 @@ class _DateHeader extends StatelessWidget {
           ),
           Row(
             children: [
-              Text(
-                '${total >= 0 ? '+' : '-'} ${currency.format(total.abs())}',
-                style: TextStyle(color: total >= 0 ? AppColors.success : AppColors.error, fontSize: 13, fontWeight: FontWeight.w800),
+              FittedBox(
+                child: Text(
+                  '${total >= 0 ? '+' : '-'} ${currency.format(total.abs())}',
+                  style: TextStyle(color: total >= 0 ? AppColors.success : AppColors.error, fontSize: 13, fontWeight: FontWeight.w800),
+                ),
               ),
               const SizedBox(width: 4),
               Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: colors.textDisabled),
@@ -507,9 +536,12 @@ class _TransactionTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                '${isIncome ? '+' : '-'} ${currency.format(t.amount)}',
-                style: TextStyle(color: isIncome ? AppColors.success : AppColors.error, fontWeight: FontWeight.w900, fontSize: 16),
+              const SizedBox(width: 8),
+              FittedBox(
+                child: Text(
+                  '${isIncome ? '+' : '-'} ${currency.format(t.amount)}',
+                  style: TextStyle(color: isIncome ? AppColors.success : AppColors.error, fontWeight: FontWeight.w900, fontSize: 16),
+                ),
               ),
             ],
           ),

@@ -102,20 +102,26 @@ class QuickActions extends StatelessWidget {
                   child: Icon(icon, color: color, size: 20),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: colors.textPrimary,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: colors.textPrimary,
+                    ),
                   ),
                 ),
-                Text(
-                  subLabel,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: colors.textSecondary,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    subLabel,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textSecondary,
+                    ),
                   ),
                 ),
               ],

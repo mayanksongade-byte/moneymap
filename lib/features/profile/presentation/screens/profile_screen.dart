@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -47,33 +48,173 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (index == _currentIndex) return;
   }
 
-  Future<void> _exportData(bool isPdf) async {
-    final transactions = context.read<TransactionProvider>().transactions;
-    if (transactions.isEmpty) {
-      _showToast('No transactions found to export', isError: true);
+  void _showExportSheet() {
+    final colors = context.colors;
+    // Default to today (start of day to end of day)
+    final now = DateTime.now();
+    DateTimeRange selectedRange = DateTimeRange(
+      start: DateTime(now.year, now.month, now.day),
+      end: DateTime(now.year, now.month, now.day),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Container(
+            padding: EdgeInsets.fromLTRB(32, 12, 32, 32 + MediaQuery.of(context).viewInsets.bottom),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: colors.border, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 24),
+                Text("Export Report", style: TextStyle(color: colors.textPrimary, fontSize: 22, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 8),
+                Text("Select date range and format", style: TextStyle(color: colors.textSecondary, fontSize: 15)),
+                const SizedBox(height: 24),
+
+                // Date Range Picker Trigger
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      initialDateRange: selectedRange,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) => Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: Theme.of(context).colorScheme.copyWith(
+                            primary: AppColors.primary,
+                            onPrimary: Colors.white,
+                          ),
+                        ),
+                        child: child!,
+                      ),
+                    );
+                    if (picked != null) setSheetState(() => selectedRange = picked);
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: colors.background,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colors.border.withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                selectedRange.start == selectedRange.end 
+                                  ? "Selected Date" 
+                                  : "Selected Range",
+                                style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                selectedRange.start == selectedRange.end
+                                    ? DateFormat('dd MMM yyyy').format(selectedRange.start)
+                                    : "${DateFormat('dd MMM').format(selectedRange.start)} - ${DateFormat('dd MMM yyyy').format(selectedRange.end)}",
+                                style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w700, fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.edit_calendar_rounded, color: colors.textSecondary, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Format Options
+                Row(
+                  children: [
+                    Expanded(child: _buildExportOpt(colors, "PDF", Icons.picture_as_pdf_rounded, Colors.red, true, selectedRange)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildExportOpt(colors, "Excel", Icons.table_chart_rounded, Colors.green, false, selectedRange)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        }
+      ),
+    );
+  }
+
+  Widget _buildExportOpt(AppColorsExtension colors, String label, IconData icon, Color color, bool isPdf, DateTimeRange range) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        _handleExport(isPdf, range);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 12),
+            Text("Download $label", style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleExport(bool isPdf, DateTimeRange range) async {
+    final tp = context.read<TransactionProvider>();
+    final cur = context.read<CurrencyProvider>();
+
+    // Filter Transactions (inclusive of both start and end dates)
+    final startDate = DateTime(range.start.year, range.start.month, range.start.day);
+    final endDate = DateTime(range.end.year, range.end.month, range.end.day, 23, 59, 59);
+
+    final filtered = tp.transactions.where((t) {
+      return !t.date.isBefore(startDate) && !t.date.isAfter(endDate);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      final rangeStr = startDate == DateTime(range.end.year, range.end.month, range.end.day)
+          ? DateFormat('dd MMM yyyy').format(startDate)
+          : "${DateFormat('dd MMM').format(startDate)} - ${DateFormat('dd MMM yyyy').format(endDate)}";
+      _showToast("No transactions found for $rangeStr", isError: true);
       return;
     }
-
-    final currencyProvider = context.read<CurrencyProvider>();
 
     setState(() => _isBusy = true);
     try {
       if (isPdf) {
-        await ExportHelper.exportToPdf(
-          transactions, 
-          userName: _user?.displayName,
-          currencySymbol: currencyProvider.currencySymbol,
-        );
+        await ExportHelper.exportToPdf(filtered, userName: _user?.displayName, currencySymbol: cur.currencySymbol)
+            .timeout(const Duration(seconds: 15));
       } else {
-        await ExportHelper.exportToExcel(transactions);
+        await ExportHelper.exportToExcel(filtered)
+            .timeout(const Duration(seconds: 15));
       }
       _showToast('Export successful!');
+    } on TimeoutException {
+      _showToast('Export timed out. Please try again.', isError: true);
     } catch (e) {
       _showToast('Export failed: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() => _isBusy = false);
-      }
+      if (mounted) setState(() => _isBusy = false);
     }
   }
 
@@ -345,44 +486,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   subtitle: 'Theme, currency & alerts',
                   onTap: () => context.push(AppRoutes.settings),
                 ),
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: colors.border.withValues(alpha: 0.3)),
-                  ),
-                  child: Theme(
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      initiallyExpanded: _exportExpanded,
-                      onExpansionChanged: (val) => setState(() => _exportExpanded = val),
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      leading: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.file_copy_outlined, color: AppColors.primary, size: 22),
-                      ),
-                      title: const Text('Export Data', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                      subtitle: Text('Excel & PDF reports', style: TextStyle(fontSize: 12, color: colors.textSecondary)),
-                      trailing: Icon(_exportExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                          child: Row(
-                            children: [
-                              Expanded(child: _buildExportButton(isPdf: false)),
-                              const SizedBox(width: 12),
-                              Expanded(child: _buildExportButton(isPdf: true)),
-                            ],
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
+                _MenuTile(
+                  icon: Icons.file_copy_outlined,
+                  title: 'Export Data',
+                  subtitle: 'Excel & PDF reports',
+                  onTap: _showExportSheet,
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -422,40 +530,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           fontWeight: FontWeight.bold,
           color: context.colors.textDisabled,
           letterSpacing: 1.1,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExportButton({required bool isPdf}) {
-    final colors = context.colors;
-    return InkWell(
-      onTap: () => _exportData(isPdf),
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isPdf ? Colors.red.withValues(alpha: 0.06) : Colors.green.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isPdf ? Colors.red.withValues(alpha: 0.12) : Colors.green.withValues(alpha: 0.12)),
-        ),
-        child: Row(
-          children: [
-            Icon(isPdf ? Icons.picture_as_pdf_rounded : Icons.table_chart_rounded,
-                 color: isPdf ? Colors.red : Colors.green, size: 26),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(isPdf ? 'Export as PDF' : 'Export as Excel',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: colors.textPrimary)),
-                  Text(isPdf ? '.pdf format' : '.xlsx format',
-                      style: TextStyle(fontSize: 10, color: colors.textSecondary)),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
