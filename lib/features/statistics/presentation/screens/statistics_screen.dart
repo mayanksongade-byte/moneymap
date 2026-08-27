@@ -283,10 +283,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       bottomNavigationBar: AppBottomNav(
         currentIndex: 1,
         onTap: (index) {
-          if (index == 0) context.go(AppRoutes.home);
-          if (index == 2) context.go(AppRoutes.addTransaction);
-          if (index == 3) context.go(AppRoutes.budget);
-          if (index == 4) context.go(AppRoutes.profile);
+          // Navigation is handled by AppBottomNav internally.
+          // We only need this callback if we want to perform extra actions on tap.
         },
       ),
     );
@@ -1022,29 +1020,80 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 final selected = _touchedIndex == i;
 
                 return GestureDetector(
-                  onTap: () => setState(() => _touchedIndex = selected ? -1 : i),
-                  child: Container(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _touchedIndex = selected ? -1 : i);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: selected ? color.withValues(alpha: 0.05) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: selected ? color.withValues(alpha: 0.2) : Colors.transparent),
+                    ),
                     child: Row(
                       children: [
                         Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(cat.icon, style: const TextStyle(fontSize: 16)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(entry.name, style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+                          child: Text(
+                            entry.name,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                        Text(currency.format(entry.amount), style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
-                        const SizedBox(width: 8),
-                        Text("${pct.toStringAsFixed(0)}%", style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              currency.format(entry.amount),
+                              style: TextStyle(
+                                color: colors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "${pct.toStringAsFixed(1)}%",
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 );
               }),
+              if (cats.length > 5) ...[
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    "+${cats.length - 5} more in the breakdown below",
+                    style: TextStyle(
+                      color: colors.textSecondary.withValues(alpha: 0.7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1414,14 +1463,14 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       return !t.date.isBefore(startDate) && !t.date.isAfter(endDate);
     }).toList();
 
+    final dateRangeStr = startDate == DateTime(range.end.year, range.end.month, range.end.day)
+        ? DateFormat('dd MMM yyyy').format(startDate)
+        : "${DateFormat('dd MMM yyyy').format(startDate)} - ${DateFormat('dd MMM yyyy').format(endDate)}";
+
     if (filtered.isEmpty) {
-      final rangeStr = startDate == DateTime(range.end.year, range.end.month, range.end.day)
-          ? DateFormat('dd MMM yyyy').format(startDate)
-          : "${DateFormat('dd MMM').format(startDate)} - ${DateFormat('dd MMM yyyy').format(endDate)}";
-      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("No transactions found for $rangeStr"),
+          content: Text("No transactions found for $dateRangeStr"),
           backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1433,8 +1482,12 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     setState(() => _isExporting = true);
     try {
       if (isPdf) {
-        await ExportHelper.exportToPdf(filtered, userName: user?.displayName, currencySymbol: cur.currencySymbol)
-            .timeout(const Duration(seconds: 15));
+        await ExportHelper.exportToPdf(
+          filtered, 
+          userName: user?.displayName, 
+          currencySymbol: cur.currencySymbol,
+          dateRange: dateRangeStr,
+        ).timeout(const Duration(seconds: 15));
       } else {
         await ExportHelper.exportToExcel(filtered)
             .timeout(const Duration(seconds: 15));

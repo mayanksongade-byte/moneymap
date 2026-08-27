@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:moneymap/features/home/data/models/category_model.dart';
 import 'package:moneymap/features/home/data/models/transaction_model.dart';
 import 'package:moneymap/features/home/presentation/widgets/type_toggle.dart';
@@ -12,6 +13,7 @@ import 'package:moneymap/features/category/presentation/providers/category_provi
 import 'package:moneymap/core/providers/notification_provider.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/theme/app_colors_extension.dart';
+import 'package:moneymap/config/routes/app_routes.dart';
 import 'success_screen.dart';
 
 class AddTransactionScreen extends StatefulWidget {
@@ -165,7 +167,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   context,
                   MaterialPageRoute(builder: (context) => const AddTransactionScreen()),
                 ),
-                onGoHome: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                onGoHome: () => context.go(AppRoutes.home),
               ),
             ),
           );
@@ -244,7 +246,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       title: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () => context.pop(),
             child: Container(
               width: 46,
               height: 46,

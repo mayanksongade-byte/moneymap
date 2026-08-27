@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/color_constants.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../home/presentation/providers/transaction_provider.dart';
@@ -489,7 +490,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
           title: Row(
             children: [
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () => context.pop(),
                 child: Container(
                   width: 46,
                   height: 46,

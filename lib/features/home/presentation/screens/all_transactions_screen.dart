@@ -219,7 +219,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
         : Row(
             children: [
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () => context.pop(),
                 child: Container(
                   width: 46, height: 46,
                   decoration: BoxDecoration(

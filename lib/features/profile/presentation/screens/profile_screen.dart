@@ -191,19 +191,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return !t.date.isBefore(startDate) && !t.date.isAfter(endDate);
     }).toList();
 
+    final dateRangeStr = startDate == DateTime(range.end.year, range.end.month, range.end.day)
+        ? DateFormat('dd MMM yyyy').format(startDate)
+        : "${DateFormat('dd MMM yyyy').format(startDate)} - ${DateFormat('dd MMM yyyy').format(endDate)}";
+
     if (filtered.isEmpty) {
-      final rangeStr = startDate == DateTime(range.end.year, range.end.month, range.end.day)
-          ? DateFormat('dd MMM yyyy').format(startDate)
-          : "${DateFormat('dd MMM').format(startDate)} - ${DateFormat('dd MMM yyyy').format(endDate)}";
-      _showToast("No transactions found for $rangeStr", isError: true);
+      _showToast("No transactions found for $dateRangeStr", isError: true);
       return;
     }
 
     setState(() => _isBusy = true);
     try {
       if (isPdf) {
-        await ExportHelper.exportToPdf(filtered, userName: _user?.displayName, currencySymbol: cur.currencySymbol)
-            .timeout(const Duration(seconds: 15));
+        await ExportHelper.exportToPdf(
+          filtered, 
+          userName: _user?.displayName, 
+          currencySymbol: cur.currencySymbol,
+          dateRange: dateRangeStr,
+        ).timeout(const Duration(seconds: 15));
       } else {
         await ExportHelper.exportToExcel(filtered)
             .timeout(const Duration(seconds: 15));
