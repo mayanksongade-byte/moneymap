@@ -18,6 +18,7 @@ import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/providers/notification_provider.dart';
+import 'package:moneymap/core/providers/connectivity_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -143,32 +144,69 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: colors.background,
       extendBody: true,
       bottomNavigationBar: AppBottomNav(currentIndex: _currentIndex, onTap: _onNavTap),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: colors.surface,
-        displacement: 40,
-        onRefresh: () async {
-          HapticFeedback.mediumImpact();
-          final txProvider = context.read<TransactionProvider>();
-          final budgetProvider = context.read<BudgetProvider>();
-          
-          await txProvider.refreshTransactions();
-          
-          if (mounted) {
-            budgetProvider.loadBudget();
-            setState(() => _refreshTick++);
-          }
-        },
-        child: Consumer2<TransactionProvider, BudgetProvider>(
-          builder: (context, txProvider, budgetProvider, _) {
-            final allTransactions = txProvider.transactions;
-            final recentTransactions = allTransactions.take(5).toList();
-            
-            return AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _buildCurrentState(context, txProvider, budgetProvider, allTransactions, recentTransactions),
-            );
-          },
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: AppColors.primary,
+            backgroundColor: colors.surface,
+            displacement: 40,
+            onRefresh: () async {
+              HapticFeedback.mediumImpact();
+              final txProvider = context.read<TransactionProvider>();
+              final budgetProvider = context.read<BudgetProvider>();
+              
+              await txProvider.refreshTransactions();
+              
+              if (mounted) {
+                budgetProvider.loadBudget();
+                setState(() => _refreshTick++);
+              }
+            },
+            child: Consumer2<TransactionProvider, BudgetProvider>(
+              builder: (context, txProvider, budgetProvider, _) {
+                final allTransactions = txProvider.transactions;
+                final recentTransactions = allTransactions.take(5).toList();
+                
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _buildCurrentState(context, txProvider, budgetProvider, allTransactions, recentTransactions),
+                );
+              },
+            ),
+          ),
+          _buildOfflineIndicator(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineIndicator(BuildContext context) {
+    final isOffline = context.watch<ConnectivityProvider>().isOffline;
+    if (!isOffline) return const SizedBox.shrink();
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 5,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+              SizedBox(width: 8),
+              Text(
+                'Offline Mode - Changes will sync later',
+                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
     );

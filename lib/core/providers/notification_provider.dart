@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../services/notification_service.dart' hide debugPrint;
+import '../services/notification_service.dart';
 import '../../features/home/data/models/transaction_model.dart';
 import '../models/notification_history_model.dart';
 
@@ -325,16 +325,20 @@ class NotificationProvider extends ChangeNotifier {
     final title = 'Transaction Added ✅';
     final body = "Success! You added ${transaction.category} for $formattedAmount. Your new balance is $formattedBalance. 💰";
     
-    // We only add to history, usually no system banner for every transaction unless requested
-    // But I'll add a system notification too for professionalism if it's the first time
+    // Generate a unique ID for the notification to avoid collisions
+    // Especially for new transactions where id might be null
+    final notificationId = transaction.id != null 
+        ? transaction.id.hashCode 
+        : DateTime.now().millisecondsSinceEpoch % 100000;
+
     _notificationService.showBudgetAlert(
-      id: transaction.id.hashCode,
+      id: notificationId,
       title: title,
       body: body,
     );
 
     addNotification(NotificationHistoryModel(
-      id: 'tx_${transaction.id}_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'tx_${transaction.id ?? 'new'}_${DateTime.now().millisecondsSinceEpoch}',
       type: 'transactionAdded',
       title: title,
       message: body,
@@ -370,12 +374,15 @@ class NotificationProvider extends ChangeNotifier {
       return;
     }
 
-    if (!_notificationsEnabled || !_budgetAlertsEnabled || limit == null || limit <= 0) return;
+    if (!_notificationsEnabled || limit == null || limit <= 0) return;
 
-    // Debounce/Change detection (Part A.3)
+    // Debounce/Change detection
     if (_lastCheckedExpense == currentExpense && _lastCheckedLimit == limit) return;
     _lastCheckedExpense = currentExpense;
     _lastCheckedLimit = limit;
+
+    // Skip alert logic if budget alerts are disabled, but still track the seen values above
+    if (!_budgetAlertsEnabled) return;
 
     final currentMonth = "${DateTime.now().year}-${DateTime.now().month}";
     if (_lastBudgetAlertMonth != currentMonth) {

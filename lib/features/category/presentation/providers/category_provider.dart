@@ -62,7 +62,31 @@ class CategoryProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await _service.addCategory(category);
+      await _service.addCategory(category).timeout(const Duration(seconds: 4));
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on TimeoutException {
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateCategory(CategoryModel category) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _service.updateCategory(category).timeout(const Duration(seconds: 4));
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } on TimeoutException {
       _isLoading = false;
       notifyListeners();
       return true;
@@ -76,7 +100,10 @@ class CategoryProvider extends ChangeNotifier {
 
   Future<bool> deleteCategory(String id) async {
     try {
-      await _service.deleteCategory(id);
+      await _service.deleteCategory(id).timeout(const Duration(seconds: 4));
+      notifyListeners();
+      return true;
+    } on TimeoutException {
       notifyListeners();
       return true;
     } catch (e) {

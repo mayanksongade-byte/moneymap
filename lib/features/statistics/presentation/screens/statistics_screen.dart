@@ -244,26 +244,32 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         const SizedBox(height: 24),
                         _staggered(1, _buildHeroCard(colors, currency, netBalance, totalIncome, totalExpense, _period.label, expDelta)),
                         const SizedBox(height: 16),
-                        _staggered(2, Row(
-                          children: [
-                            Expanded(child: _buildMiniCard(colors, currency, "Income", totalIncome, const Color(0xFF10B981), Icons.arrow_downward_rounded, "+4.2%")),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildMiniCard(colors, currency, "Expense", totalExpense, const Color(0xFFF43F5E), Icons.arrow_upward_rounded, "+12%")),
+                        
+                        if (currentTxCount == 0) ...[
+                          const SizedBox(height: 16),
+                          _staggered(2, _buildEmptyState(colors)),
+                        ] else ...[
+                          _staggered(2, Row(
+                            children: [
+                              Expanded(child: _buildMiniCard(colors, currency, "Income", totalIncome, const Color(0xFF10B981), Icons.arrow_downward_rounded, "+4.2%")),
+                              const SizedBox(width: 12),
+                              Expanded(child: _buildMiniCard(colors, currency, "Expense", totalExpense, const Color(0xFFF43F5E), Icons.arrow_upward_rounded, "+12%")),
+                            ],
+                          )),
+                          const SizedBox(height: 16),
+                          _staggered(3, _buildInsightsStrip(colors, currency, savingsRate, sortedCats, currentTxCount, totalExpense)),
+                          const SizedBox(height: 28),
+                          _staggered(4, _buildTrendChart(colors, currency, trendMap)),
+                          const SizedBox(height: 32),
+                          if (!_showIncome) ...[
+                            _staggered(5, _buildPaymentMethods(colors, currency, sortedModes, modeCount, totalExpense)),
+                            const SizedBox(height: 32),
                           ],
-                        )),
-                        const SizedBox(height: 16),
-                        _staggered(3, _buildInsightsStrip(colors, currency, savingsRate, sortedCats, currentTxCount, totalExpense)),
-                        const SizedBox(height: 28),
-                        _staggered(4, _buildTrendChart(colors, currency, trendMap)),
-                        const SizedBox(height: 32),
-                        if (!_showIncome) ...[
-                          _staggered(5, _buildPaymentMethods(colors, currency, sortedModes, modeCount, totalExpense)),
-                          const SizedBox(height: 32),
-                        ],
-                        _staggered(6, _buildCategoryBreakdown(colors, currency, sortedCats, _showIncome ? totalIncome : totalExpense, cp)),
-                        if (sortedCats.isNotEmpty) ...[
-                          const SizedBox(height: 32),
-                          _staggered(7, _buildFullBreakdown(colors, currency, sortedCats, _showIncome ? totalIncome : totalExpense, cp)),
+                          _staggered(6, _buildCategoryBreakdown(colors, currency, sortedCats, _showIncome ? totalIncome : totalExpense, cp)),
+                          if (sortedCats.isNotEmpty) ...[
+                            const SizedBox(height: 32),
+                            _staggered(7, _buildFullBreakdown(colors, currency, sortedCats, _showIncome ? totalIncome : totalExpense, cp)),
+                          ],
                         ],
                         const SizedBox(height: 120),
                       ],
@@ -691,83 +697,86 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             ],
           ),
           const SizedBox(height: 32),
-          AspectRatio(
-            aspectRatio: 1.8,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxVal * 1.3,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    tooltipBgColor: colors.surface,
-                    tooltipRoundedRadius: 12,
-                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    tooltipBorder: BorderSide(color: colors.border.withValues(alpha: 0.5)),
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      return BarTooltipItem(
-                        currency.format(rod.toY),
-                        TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w900, fontSize: 13),
-                      );
-                    },
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 32,
-                      getTitlesWidget: (value, meta) {
-                        String label = value.toInt().toString();
-                        if (_period == StatsPeriod.d7) {
-                          const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                          label = (value.toInt() >= 1 && value.toInt() <= 7) ? days[value.toInt() - 1] : label;
-                        }
-                        return SideTitleWidget(
-                          axisSide: meta.axisSide,
-                          space: 8,
-                          child: Text(
-                            label,
-                            style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.w700),
-                          ),
+          if (trendMap.isEmpty)
+            _buildSmallEmptyState(colors, "No spending data for this period")
+          else
+            AspectRatio(
+              aspectRatio: 1.8,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: maxVal * 1.3,
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      tooltipBgColor: colors.surface,
+                      tooltipRoundedRadius: 12,
+                      tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      tooltipBorder: BorderSide(color: colors.border.withValues(alpha: 0.5)),
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        return BarTooltipItem(
+                          currency.format(rod.toY),
+                          TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w900, fontSize: 13),
                         );
                       },
                     ),
                   ),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(color: colors.border.withValues(alpha: 0.1), strokeWidth: 1),
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: sortedKeys.map((k) {
-                  final val = trendMap[k]!;
-                  final isMax = val == maxVal;
-                  return BarChartGroupData(
-                    x: k,
-                    barRods: [
-                      BarChartRodData(
-                        toY: val,
-                        width: 14,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: isMax 
-                            ? [const Color(0xFFEF4444), const Color(0xFFF97316)] 
-                            : [AppColors.primary.withValues(alpha: 0.8), AppColors.primary.withValues(alpha: 0.4)],
-                        ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 32,
+                        getTitlesWidget: (value, meta) {
+                          String label = value.toInt().toString();
+                          if (_period == StatsPeriod.d7) {
+                            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                            label = (value.toInt() >= 1 && value.toInt() <= 7) ? days[value.toInt() - 1] : label;
+                          }
+                          return SideTitleWidget(
+                            axisSide: meta.axisSide,
+                            space: 8,
+                            child: Text(
+                              label,
+                              style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.w700),
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  );
-                }).toList(),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => FlLine(color: colors.border.withValues(alpha: 0.1), strokeWidth: 1),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: sortedKeys.map((k) {
+                    final val = trendMap[k]!;
+                    final isMax = val == maxVal;
+                    return BarChartGroupData(
+                      x: k,
+                      barRods: [
+                        BarChartRodData(
+                          toY: val,
+                          width: 14,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: isMax 
+                              ? [const Color(0xFFEF4444), const Color(0xFFF97316)] 
+                              : [AppColors.primary.withValues(alpha: 0.8), AppColors.primary.withValues(alpha: 0.4)],
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -786,105 +795,109 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         children: [
           Text("Payment Methods", style: TextStyle(color: colors.textPrimary, fontSize: 18, fontWeight: FontWeight.w900)),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              SizedBox(
-                width: 140,
-                height: 140,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    PieChart(
-                      PieChartData(
-                        sectionsSpace: 4,
-                        centerSpaceRadius: 40,
-                        startDegreeOffset: -90,
-                        sections: modes.asMap().entries.map((e) {
-                          final i = e.key;
-                          final entry = e.value;
-                          final selected = _touchedModeIndex == i;
-                          return PieChartSectionData(
-                            color: _getModeColor(entry.key),
-                            value: entry.value,
-                            radius: selected ? 20 : 16,
-                            showTitle: false,
-                          );
-                        }).toList(),
-                        pieTouchData: PieTouchData(
-                          touchCallback: (event, response) {
-                            setState(() {
-                              if (!event.isInterestedForInteractions || response == null || response.touchedSection == null) {
-                                _touchedModeIndex = -1;
-                                return;
-                              }
-                              _touchedModeIndex = response.touchedSection!.touchedSectionIndex;
-                            });
-                          },
+          if (modes.isEmpty)
+            _buildSmallEmptyState(colors, "No payment data yet")
+          else ...[
+            Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  height: 140,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      PieChart(
+                        PieChartData(
+                          sectionsSpace: 4,
+                          centerSpaceRadius: 40,
+                          startDegreeOffset: -90,
+                          sections: modes.asMap().entries.map((e) {
+                            final i = e.key;
+                            final entry = e.value;
+                            final selected = _touchedModeIndex == i;
+                            return PieChartSectionData(
+                              color: _getModeColor(entry.key),
+                              value: entry.value,
+                              radius: selected ? 20 : 16,
+                              showTitle: false,
+                            );
+                          }).toList(),
+                          pieTouchData: PieTouchData(
+                            touchCallback: (event, response) {
+                              setState(() {
+                                if (!event.isInterestedForInteractions || response == null || response.touchedSection == null) {
+                                  _touchedModeIndex = -1;
+                                  return;
+                                }
+                                _touchedModeIndex = response.touchedSection!.touchedSectionIndex;
+                              });
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text("${modes.length}", style: TextStyle(color: colors.textPrimary, fontSize: 20, fontWeight: FontWeight.w900)),
-                        Text("Modes", style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  children: modes.take(3).map((e) => _buildModeMini(colors, e.key, e.value, total)).toList(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...modes.asMap().entries.map((e) {
-            final i = e.key;
-            final entry = e.value;
-            final selected = _touchedModeIndex == i;
-            return GestureDetector(
-              onTap: () => setState(() => _touchedModeIndex = selected ? -1 : i),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: selected ? _getModeColor(entry.key).withValues(alpha: 0.05) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: selected ? _getModeColor(entry.key).withValues(alpha: 0.2) : Colors.transparent),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: _getModeColor(entry.key).withValues(alpha: 0.1), shape: BoxShape.circle),
-                      child: Icon(_getModeIcon(entry.key), color: _getModeColor(entry.key), size: 16),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(entry.key, style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
-                          Text("${counts[entry.key]} transactions", style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                          Text("${modes.length}", style: TextStyle(color: colors.textPrimary, fontSize: 20, fontWeight: FontWeight.w900)),
+                          Text("Modes", style: TextStyle(color: colors.textSecondary, fontSize: 10, fontWeight: FontWeight.w700)),
                         ],
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(currency.format(entry.value), style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
-                        Text("${(entry.value / total * 100).toStringAsFixed(1)}%", style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    children: modes.take(3).map((e) => _buildModeMini(colors, e.key, e.value, total)).toList(),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ...modes.asMap().entries.map((e) {
+              final i = e.key;
+              final entry = e.value;
+              final selected = _touchedModeIndex == i;
+              return GestureDetector(
+                onTap: () => setState(() => _touchedModeIndex = selected ? -1 : i),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: selected ? _getModeColor(entry.key).withValues(alpha: 0.05) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: selected ? _getModeColor(entry.key).withValues(alpha: 0.2) : Colors.transparent),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: _getModeColor(entry.key).withValues(alpha: 0.1), shape: BoxShape.circle),
+                        child: Icon(_getModeIcon(entry.key), color: _getModeColor(entry.key), size: 16),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(entry.key, style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+                            Text("${counts[entry.key]} transactions", style: TextStyle(color: colors.textSecondary, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(currency.format(entry.value), style: TextStyle(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w800)),
+                          Text("${(entry.value / total * 100).toStringAsFixed(1)}%", style: TextStyle(color: colors.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
         ],
       ),
     );
@@ -1233,26 +1246,105 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   Widget _buildEmptyState(AppColorsExtension colors) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 40),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: colors.border.withValues(alpha: 0.5), style: BorderStyle.none),
+        border: Border.all(color: colors.border.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: colors.background, shape: BoxShape.circle),
-            child: Icon(Icons.analytics_outlined, size: 48, color: colors.textSecondary.withValues(alpha: 0.3)),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.bar_chart_rounded, 
+              size: 56, 
+              color: AppColors.primary.withValues(alpha: 0.3)
+            ),
           ),
-          const SizedBox(height: 20),
-          Text("No Data Found", style: TextStyle(color: colors.textPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Text("Try changing the period or adding new transactions.", 
+          const SizedBox(height: 28),
+          Text(
+            "No Activity Yet", 
+            style: TextStyle(
+              color: colors.textPrimary, 
+              fontSize: 20, 
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+            )
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Your financial statistics will appear here once you start adding transactions.", 
             textAlign: TextAlign.center,
-            style: TextStyle(color: colors.textSecondary, fontSize: 14)),
+            style: TextStyle(
+              color: colors.textSecondary, 
+              fontSize: 14,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            )
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: () => context.push(
+              AppRoutes.addTransaction,
+              extra: {'initialType': 'income'},
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: colors.background,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Add your first transaction",
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSmallEmptyState(AppColorsExtension colors, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          children: [
+            Icon(Icons.query_stats_rounded, color: colors.textDisabled, size: 40),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -365,8 +365,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                             _SlideUpAnimation(
                               delay: 600,
                               child: _PremiumButton(
-                                onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
-                                isLoading: _isGoogleLoading,
+                                onPressed: (authProvider.isLoading || authProvider.isGoogleLoading) ? null : _handleGoogleSignIn,
+                                isLoading: authProvider.isGoogleLoading,
                                 backgroundColor: isDark ? Colors.white : colors.surface,
                                 foregroundColor: isDark ? Colors.black : colors.textPrimary,
                                 icon: SvgPicture.asset(

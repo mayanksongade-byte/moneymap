@@ -218,6 +218,16 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
             ),
             const SizedBox(height: 16),
             ListTile(
+              leading: const Icon(Icons.edit_outlined,
+                  color: Colors.blue),
+              title: const Text('Edit category',
+                  style: TextStyle(color: Colors.blue)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showAddCategorySheet(context, category.type, categoryToEdit: category);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_outline_rounded,
                   color: AppColors.error),
               title: const Text('Delete category',
@@ -273,13 +283,13 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
     );
   }
 
-  void _showAddCategorySheet(BuildContext context, String defaultType) {
+  void _showAddCategorySheet(BuildContext context, String defaultType, {CategoryModel? categoryToEdit}) {
     HapticFeedback.lightImpact();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _AddCategorySheet(defaultType: defaultType),
+      builder: (ctx) => _AddCategorySheet(defaultType: defaultType, categoryToEdit: categoryToEdit),
     );
   }
 
@@ -829,7 +839,8 @@ class _EmptyState extends StatelessWidget {
 
 class _AddCategorySheet extends StatefulWidget {
   final String defaultType;
-  const _AddCategorySheet({required this.defaultType});
+  final CategoryModel? categoryToEdit;
+  const _AddCategorySheet({required this.defaultType, this.categoryToEdit});
 
   @override
   State<_AddCategorySheet> createState() => _AddCategorySheetState();
@@ -839,15 +850,22 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emojiSearch = TextEditingController();
   late String _type;
-  String _selectedEmoji = _emojiChoices.first;
-  String _selectedColor = _colorChoices.first;
+  late String _selectedEmoji;
+  late String _selectedColor;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _type = widget.defaultType;
-    _updateDefaultColor();
+    _type = widget.categoryToEdit?.type ?? widget.defaultType;
+    _selectedEmoji = widget.categoryToEdit?.icon ?? _emojiChoices.first;
+    _selectedColor = widget.categoryToEdit?.color ?? _colorChoices.first;
+    _nameController.text = widget.categoryToEdit?.name ?? '';
+    
+    if (widget.categoryToEdit == null) {
+      _updateDefaultColor();
+    }
+    
     _nameController.addListener(() => setState(() {}));
   }
 
@@ -875,13 +893,18 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
 
     final provider = context.read<CategoryProvider>();
     final messenger = ScaffoldMessenger.of(context);
-    final success = await provider.addCategory(CategoryModel(
-      id: '',
+    
+    final category = CategoryModel(
+      id: widget.categoryToEdit?.id ?? '',
       name: _nameController.text.trim(),
       icon: _selectedEmoji,
       type: _type,
       color: _selectedColor,
-    ));
+    );
+
+    final success = widget.categoryToEdit != null 
+        ? await provider.updateCategory(category)
+        : await provider.addCategory(category);
 
     if (!mounted) return;
     setState(() => _isSaving = false);
@@ -890,7 +913,7 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
     } else {
       messenger.showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
-        content: Text(provider.error ?? 'Failed to add category'),
+        content: Text(provider.error ?? 'Failed to save category'),
         backgroundColor: AppColors.error,
       ));
     }
@@ -936,7 +959,7 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
-                      child: Text('New Category',
+                      child: Text(widget.categoryToEdit != null ? 'Edit Category' : 'New Category',
                           style: TextStyle(
                               fontSize: 19,
                               fontWeight: FontWeight.bold,
@@ -1158,8 +1181,8 @@ class _AddCategorySheetState extends State<_AddCategorySheet> {
                               child: CircularProgressIndicator(
                                   color: Colors.white, strokeWidth: 2.5))
                           : FittedBox(
-                              child: const Text('Create Category',
-                                  style: TextStyle(
+                              child: Text(widget.categoryToEdit != null ? 'Save Changes' : 'Create Category',
+                                  style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w800,
                                       fontSize: 16)),

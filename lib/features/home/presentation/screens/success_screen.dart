@@ -1,21 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:math' as math;
 import 'package:moneymap/core/constants/color_constants.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/providers/currency_provider.dart';
+import '../../../../config/routes/app_routes.dart';
 
 class SuccessScreen extends StatelessWidget {
   final Map<String, dynamic> transaction;
-  final VoidCallback onAddAnother;
-  final VoidCallback onGoHome;
 
   const SuccessScreen({
     super.key,
     required this.transaction,
-    required this.onAddAnother,
-    required this.onGoHome,
   });
 
   Widget? _getPaymentIcon(String? mode) {
@@ -186,7 +183,7 @@ class SuccessScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: onAddAnother,
+                  onPressed: () => context.pushReplacement(AppRoutes.addTransaction),
                   icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
                   label: const Text('Add Another Transaction', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                   style: ElevatedButton.styleFrom(
@@ -202,7 +199,7 @@ class SuccessScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 56,
                 child: OutlinedButton.icon(
-                  onPressed: onGoHome,
+                  onPressed: () => context.go(AppRoutes.home),
                   icon: const Icon(Icons.home_outlined, size: 20),
                   label: const Text('Go to Home', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                   style: OutlinedButton.styleFrom(

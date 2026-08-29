@@ -13,6 +13,7 @@ class AppRoutes {
   static const String budget = '/budget';
   static const String categoryManagement = '/category-management';
   static const String statistics = '/statistics';
+  static const String success = '/success';
   static const String profile = '/profile';
   static const String settings = '/settings';
   static const String notifications = '/notifications';

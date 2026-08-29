@@ -39,6 +39,17 @@ class CategoryService {
       'type': category.type,
       'color': category.color,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateCategory(CategoryModel category) async {
+    await _firestore.collection('categories').doc(category.id).update({
+      'name': category.name,
+      'icon': category.icon,
+      'type': category.type,
+      'color': category.color,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 

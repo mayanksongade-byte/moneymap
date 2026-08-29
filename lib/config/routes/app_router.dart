@@ -12,6 +12,7 @@ import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/home/presentation/screens/add_transaction_screen.dart';
 import '../../features/home/presentation/screens/all_transactions_screen.dart';
 import '../../features/home/presentation/screens/transaction_details_screen.dart';
+import '../../features/home/presentation/screens/success_screen.dart';
 import '../../features/home/data/models/transaction_model.dart';
 import '../../features/budget/presentation/screens/budget_screen.dart';
 import '../../features/category/presentation/screens/category_management_screen.dart';
@@ -101,6 +102,16 @@ class AppRouter {
           return _slideUpTransitionPage(
             state: state,
             child: TransactionDetailsScreen(transaction: transaction),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.success,
+        pageBuilder: (context, state) {
+          final transaction = state.extra as Map<String, dynamic>;
+          return _slideUpTransitionPage(
+            state: state,
+            child: SuccessScreen(transaction: transaction),
           );
         },
       ),

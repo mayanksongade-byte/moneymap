@@ -43,8 +43,10 @@ class BudgetProvider extends ChangeNotifier {
 
   Future<bool> setBudget(double limit) async {
     try {
-      await _service.setMonthlyLimit(limit);
+      await _service.setMonthlyLimit(limit).timeout(const Duration(seconds: 4));
       return true;
+    } on TimeoutException {
+      return true; // Assume success for offline queue
     } catch (e) {
       _error = e.toString();
       notifyListeners();
@@ -54,7 +56,9 @@ class BudgetProvider extends ChangeNotifier {
 
   Future<bool> setCategoryLimit(String category, double limit) async {
     try {
-      await _service.setCategoryLimit(category, limit);
+      await _service.setCategoryLimit(category, limit).timeout(const Duration(seconds: 4));
+      return true;
+    } on TimeoutException {
       return true;
     } catch (e) {
       _error = e.toString();
@@ -65,7 +69,9 @@ class BudgetProvider extends ChangeNotifier {
 
   Future<bool> removeCategoryLimit(String category) async {
     try {
-      await _service.removeCategoryLimit(category);
+      await _service.removeCategoryLimit(category).timeout(const Duration(seconds: 4));
+      return true;
+    } on TimeoutException {
       return true;
     } catch (e) {
       _error = e.toString();

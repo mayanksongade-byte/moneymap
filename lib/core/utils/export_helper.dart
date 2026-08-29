@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -25,8 +26,10 @@ class ExportHelper {
 
   static Future<void> exportToExcel(List<TransactionModel> transactions) async {
     try {
-      print(
-          'DEBUG-EXPORT: Starting Excel export for ${transactions.length} items');
+      if (kDebugMode) {
+        print(
+            'DEBUG-EXPORT: Starting Excel export for ${transactions.length} items');
+      }
       var excel = Excel.createExcel();
       Sheet sheetObject = excel['Transactions'];
       excel.delete('Sheet1');
@@ -56,17 +59,25 @@ class ExportHelper {
           "${directory.path}/MoneyMap_Export_${DateTime.now().millisecondsSinceEpoch}.xlsx";
       final file = File(path);
 
-      print('DEBUG-EXPORT: Encoding excel data');
+      if (kDebugMode) {
+        print('DEBUG-EXPORT: Encoding excel data');
+      }
       final excelBytes = excel.encode();
       if (excelBytes != null) {
-        print('DEBUG-EXPORT: Writing file to $path');
+        if (kDebugMode) {
+          print('DEBUG-EXPORT: Writing file to $path');
+        }
         await file.writeAsBytes(excelBytes);
-        print('DEBUG-EXPORT: Invoking share sheet');
+        if (kDebugMode) {
+          print('DEBUG-EXPORT: Invoking share sheet');
+        }
         await Share.shareXFiles([XFile(path)],
             text: 'MoneyMap Transactions Excel Export');
       }
     } catch (e) {
-      print('DEBUG-EXPORT: Excel export error: $e');
+      if (kDebugMode) {
+        print('DEBUG-EXPORT: Excel export error: $e');
+      }
       rethrow;
     }
   }
@@ -76,8 +87,10 @@ class ExportHelper {
       String currencySymbol = 'Rs.',
       String? dateRange}) async {
     try {
-      print(
-          'DEBUG-EXPORT: Starting PDF export for ${transactions.length} items');
+      if (kDebugMode) {
+        print(
+            'DEBUG-EXPORT: Starting PDF export for ${transactions.length} items');
+      }
       final pdf = pw.Document();
       final dateFmt = DateFormat('dd MMM yyyy');
 
@@ -288,7 +301,9 @@ class ExportHelper {
         ),
       );
 
-      print('DEBUG-EXPORT: Saving PDF document');
+      if (kDebugMode) {
+        print('DEBUG-EXPORT: Saving PDF document');
+      }
       final bytes = await pdf.save();
 
       final directory = await getTemporaryDirectory();
@@ -296,15 +311,23 @@ class ExportHelper {
           "${directory.path}/MoneyMap_Report_${DateTime.now().millisecondsSinceEpoch}.pdf";
       final file = File(path);
 
-      print('DEBUG-EXPORT: Writing PDF file to $path');
+      if (kDebugMode) {
+        print('DEBUG-EXPORT: Writing PDF file to $path');
+      }
       await file.writeAsBytes(bytes);
 
-      print('DEBUG-EXPORT: Invoking share sheet for PDF');
+      if (kDebugMode) {
+        print('DEBUG-EXPORT: Invoking share sheet for PDF');
+      }
       await Share.shareXFiles([XFile(path)],
           text: 'My MoneyMap Financial Report');
-      print('DEBUG-EXPORT: Share sheet finished');
+      if (kDebugMode) {
+        print('DEBUG-EXPORT: Share sheet finished');
+      }
     } catch (e) {
-      print('DEBUG-EXPORT: PDF export error: $e');
+      if (kDebugMode) {
+        print('DEBUG-EXPORT: PDF export error: $e');
+      }
       rethrow;
     }
   }

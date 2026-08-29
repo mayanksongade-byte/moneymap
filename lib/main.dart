@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'core/theme/light_theme.dart';
@@ -10,6 +11,7 @@ import 'core/providers/notification_provider.dart';
 import 'config/routes/app_router.dart';
 import 'core/services/service_locator.dart';
 import 'core/services/notification_service.dart';
+import 'core/providers/connectivity_provider.dart';
 import 'features/auth/presentation/providers/app_auth_provider.dart';
 import 'features/home/presentation/providers/transaction_provider.dart';
 import 'features/budget/presentation/providers/budget_provider.dart';
@@ -21,6 +23,12 @@ void main() async {
   // 1. Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Enable Firestore offline persistence
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
   // 2. Initialize Notification Service
@@ -41,6 +49,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => AppAuthProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()..loadTransactions()..loadMonthlyTransactions()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),

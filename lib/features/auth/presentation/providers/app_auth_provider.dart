@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -14,6 +15,7 @@ class AppAuthProvider extends ChangeNotifier {
 
   User? _user;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   String? _error;
   AuthStatus _status = AuthStatus.initial;
   StreamSubscription<User?>? _authSubscription;
@@ -23,6 +25,7 @@ class AppAuthProvider extends ChangeNotifier {
   // Getters
   User? get user => _user;
   bool get isLoading => _isLoading;
+  bool get isGoogleLoading => _isGoogleLoading;
   String? get error => _error;
   AuthStatus get status => _status;
   bool get isGuest => _user != null && _user!.isAnonymous;
@@ -37,11 +40,39 @@ class AppAuthProvider extends ChangeNotifier {
     // 1. Load onboarding status from storage
     await _loadOnboardingStatus();
 
-    // 2. Check for existing session immediately to avoid flicker/delay
+    final Completer<void> authSettledCompleter = Completer<void>();
+
+    // 2. Start listening for auth changes immediately
+    _authSubscription = _auth.userChanges().listen((user) {
+      if (kDebugMode) {
+        print('DEBUG-STREAM: userChanges() emitted user=${user?.uid}, isAnonymous=${user?.isAnonymous}');
+      }
+      
+      if (user != null) {
+        _user = user;
+        if (user.isAnonymous) {
+          _status = AuthStatus.guest;
+        } else if (!user.emailVerified) {
+          _status = AuthStatus.unverified;
+        } else {
+          _status = AuthStatus.authenticated;
+        }
+        _markOnboardingComplete();
+        if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
+      } else {
+        // If we get a null user, we don't complete yet - we wait for the fallback or timeout
+        _user = null;
+        _status = AuthStatus.unauthenticated;
+      }
+      notifyListeners();
+    });
+
+    // 3. Fast Path: Check current user from cache
     final currentUser = _auth.currentUser;
-    print('DEBUG-INIT: currentUser on cold start = ${currentUser?.uid}, isAnonymous=${currentUser?.isAnonymous}, email=${currentUser?.email}');
-    
     if (currentUser != null) {
+      if (kDebugMode) {
+        print('DEBUG-INIT: Found currentUser in cache: ${currentUser.uid}');
+      }
       _user = currentUser;
       if (currentUser.isAnonymous) {
         _status = AuthStatus.guest;
@@ -51,86 +82,18 @@ class AppAuthProvider extends ChangeNotifier {
         _status = AuthStatus.authenticated;
       }
       _markOnboardingComplete();
+      if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
     } else {
-      // FALLBACK: currentUser is null - this can happen on Samsung devices due to
-      // an Android Keystore reliability issue affecting Firebase's encrypted token
-      // storage. Try to silently restore the session via Google Sign-In's own
-      // credential cache (separate from Firebase's Keystore-based storage) before
-      // concluding the user is logged out.
-      try {
-        final googleUser = await _googleSignIn.signInSilently();
-        if (googleUser != null) {
-          final googleAuth = await googleUser.authentication;
-          final credential = GoogleAuthProvider.credential(
-            accessToken: googleAuth.accessToken,
-            idToken: googleAuth.idToken,
-          );
-          final result = await _auth.signInWithCredential(credential);
-          if (result.user != null) {
-            _user = result.user;
-            _status = AuthStatus.authenticated;
-            _markOnboardingComplete();
-            print('DEBUG-INIT: Session restored via Google Silent Sign-In fallback');
-          } else {
-            _status = AuthStatus.unauthenticated;
-          }
-        } else {
-          _status = AuthStatus.unauthenticated;
-        }
-      } catch (e) {
-        // Silent restore failed - genuinely not logged in (or no network for
-        // Google's silent check), fall back to unauthenticated.
-        print('DEBUG-INIT: Google silent restore fallback failed: $e');
-        _status = AuthStatus.unauthenticated;
-      }
+      // 4. Fallback Path: Only if cache is empty, try Google silent restore
+      // (Handles Samsung Keystore issue where cache is cleared but Google session exists)
+      _tryGoogleFallback(authSettledCompleter);
     }
 
-    final Completer<void> authInitialCompleter = Completer<void>();
-
-    // 3. Listen for auth changes and wait for the settled state.
-    _authSubscription = _auth.userChanges().listen((user) {
-      print('DEBUG-STREAM: userChanges() emitted user=${user?.uid}, isAnonymous=${user?.isAnonymous}, email=${user?.email}');
-      
-      // If we already have a valid user from currentUser, and the stream sends null 
-      // immediately after start (common in Firebase), we ignore it briefly 
-      // UNLESS the stream consistently says null.
-      if (user == null && _user != null && !authInitialCompleter.isCompleted) {
-        print('DEBUG-STREAM: Ignoring initial null as we have a valid currentUser');
-        return;
-      }
-
-      if (_user?.uid == user?.uid && _status != AuthStatus.initial) {
-        if (!authInitialCompleter.isCompleted) authInitialCompleter.complete();
-        return;
-      }
-
-      _user = user;
-      if (user == null) {
-        _status = AuthStatus.unauthenticated;
-      } else if (user.isAnonymous) {
-        _status = AuthStatus.guest;
-        _markOnboardingComplete();
-      } else if (!user.emailVerified) {
-        _status = AuthStatus.unverified;
-      } else {
-        _status = AuthStatus.authenticated;
-        _markOnboardingComplete();
-      }
-
-      if (!authInitialCompleter.isCompleted) {
-        authInitialCompleter.complete();
-      }
-      notifyListeners();
-    });
-
-    // 4. Wait for the real settled state.
+    // 5. Wait for a resolution (either cache, stream event, fallback, or timeout)
     try {
-      // If we already found a user via currentUser, we can be more confident,
-      // but we still wait for the stream to confirm or time out.
-      await authInitialCompleter.future.timeout(
-        Duration(seconds: currentUser != null ? 2 : 4),
-      );
-    } catch (e) {
+      await authSettledCompleter.future.timeout(const Duration(seconds: 3));
+    } catch (_) {
+      if (kDebugMode) print('DEBUG-INIT: Auth initialization timed out');
       if (_status == AuthStatus.initial) {
         _status = AuthStatus.unauthenticated;
       }
@@ -138,6 +101,26 @@ class AppAuthProvider extends ChangeNotifier {
 
     _isSettingsLoaded = true;
     notifyListeners();
+  }
+
+  Future<void> _tryGoogleFallback(Completer<void> completer) async {
+    try {
+      final googleUser = await _googleSignIn.signInSilently();
+      if (googleUser != null && !completer.isCompleted) {
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        final result = await _auth.signInWithCredential(credential);
+        if (result.user != null) {
+          if (kDebugMode) print('DEBUG-INIT: Session restored via Google fallback');
+          // Stream listener will pick this up and complete the completer
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('DEBUG-INIT: Google fallback error: $e');
+    }
   }
 
   Future<void> _loadOnboardingStatus() async {
@@ -254,7 +237,7 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   Future<bool> signInWithGoogle() async {
-    _isLoading = true;
+    _isGoogleLoading = true;
     _error = null;
     notifyListeners();
 
@@ -263,7 +246,7 @@ class AppAuthProvider extends ChangeNotifier {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
-        _isLoading = false;
+        _isGoogleLoading = false;
         notifyListeners();
         return false;
       }
@@ -275,11 +258,13 @@ class AppAuthProvider extends ChangeNotifier {
       );
 
       final result = await _auth.signInWithCredential(credential);
-      print('DEBUG-GOOGLE: Signed in successfully. UID=${result.user?.uid}, isAnonymous=${result.user?.isAnonymous}, providerData=${result.user?.providerData.map((p) => p.providerId).toList()}');
+      if (kDebugMode) {
+        print('DEBUG-GOOGLE: Signed in successfully. UID=${result.user?.uid}, isAnonymous=${result.user?.isAnonymous}, providerData=${result.user?.providerData.map((p) => p.providerId).toList()}');
+      }
       _user = result.user;
       _status = AuthStatus.authenticated;
 
-      _isLoading = false;
+      _isGoogleLoading = false;
       notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
@@ -288,7 +273,7 @@ class AppAuthProvider extends ChangeNotifier {
       _error = "Google Sign-In failed.";
     }
 
-    _isLoading = false;
+    _isGoogleLoading = false;
     notifyListeners();
     return false;
   }

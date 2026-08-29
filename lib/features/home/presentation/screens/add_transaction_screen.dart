@@ -14,7 +14,7 @@ import 'package:moneymap/core/providers/notification_provider.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
-import 'success_screen.dart';
+import 'package:moneymap/config/routes/app_router.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final TransactionModel? transactionToEdit;
@@ -150,26 +150,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         if (widget.transactionToEdit != null) {
           Navigator.pop(context, true);
         } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SuccessScreen(
-                transaction: {
-                  'amount': transaction.amount,
-                  'type': transaction.type,
-                  'category': transaction.category,
-                  'icon': transaction.icon,
-                  'note': transaction.note,
-                  'paymentMode': transaction.paymentMode,
-                  'dateString': DateFormat('dd MMM yyyy').format(transaction.date),
-                },
-                onAddAnother: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AddTransactionScreen()),
-                ),
-                onGoHome: () => context.go(AppRoutes.home),
-              ),
-            ),
+          context.pushReplacement(
+            AppRoutes.success,
+            extra: {
+              'amount': transaction.amount,
+              'type': transaction.type,
+              'category': transaction.category,
+              'icon': transaction.icon,
+              'note': transaction.note,
+              'paymentMode': transaction.paymentMode,
+              'dateString': DateFormat('dd MMM yyyy').format(transaction.date),
+            },
           );
         }
       }
