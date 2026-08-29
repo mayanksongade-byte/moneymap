@@ -16,6 +16,7 @@ import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/providers/currency_provider.dart';
 import '../../../../config/routes/app_routes.dart';
 import '../../../../core/utils/export_helper.dart';
+import '../../../../core/providers/connectivity_provider.dart';
 
 enum StatsPeriod { d7, m1, y1, all }
 
@@ -279,6 +280,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               ),
             ),
           ),
+          _buildOfflineIndicator(context),
           if (_isExporting)
             Container(
               color: Colors.black.withValues(alpha: 0.3),
@@ -1619,6 +1621,38 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  Widget _buildOfflineIndicator(BuildContext context) {
+    final isOffline = context.watch<ConnectivityProvider>().isOffline;
+    if (!isOffline) return const SizedBox.shrink();
+
+    return Positioned(
+      top: 5,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+              SizedBox(width: 8),
+              Text(
+                'Offline Mode - Changes will sync later',
+                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   IconData _getModeIcon(String mode) {
