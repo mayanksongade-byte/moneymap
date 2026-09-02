@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneymap/features/home/data/models/category_model.dart';
@@ -15,6 +14,7 @@ import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
 import 'package:moneymap/config/routes/app_router.dart';
+import 'package:moneymap/features/auth/presentation/providers/app_auth_provider.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final TransactionModel? transactionToEdit;
@@ -92,8 +92,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    final authProvider = context.read<AppAuthProvider>();
+    final uid = authProvider.user?.uid;
+    if (uid == null) return;
 
     setState(() => _isUploading = true);
 
@@ -106,7 +107,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     final transaction = TransactionModel(
       id: widget.transactionToEdit?.id,
-      userId: user.uid,
+      userId: uid,
       amount: amount,
       type: _selectedType,
       category: category.name,
@@ -148,21 +149,30 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
 
         if (widget.transactionToEdit != null) {
-          Navigator.pop(context, true);
+          if (mounted) Navigator.pop(context, true);
         } else {
-          context.pushReplacement(
-            AppRoutes.success,
-            extra: {
-              'amount': transaction.amount,
-              'type': transaction.type,
-              'category': transaction.category,
-              'icon': transaction.icon,
-              'note': transaction.note,
-              'paymentMode': transaction.paymentMode,
-              'dateString': DateFormat('dd MMM yyyy').format(transaction.date),
-            },
-          );
+          if (mounted) {
+            context.pushReplacement(
+              AppRoutes.success,
+              extra: {
+                'amount': transaction.amount,
+                'type': transaction.type,
+                'category': transaction.category,
+                'icon': transaction.icon,
+                'note': transaction.note,
+                'paymentMode': transaction.paymentMode,
+                'dateString': DateFormat('dd MMM yyyy').format(transaction.date),
+              },
+            );
+          }
         }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.error ?? 'Failed to save transaction'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -216,11 +226,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             right: 20,
             child: _buildSubmitButton(),
           ),
-          if (_isUploading)
-            Container(
-              color: Colors.black26,
-              child: const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5))),
-            ),
         ],
       ),
     );
@@ -601,18 +606,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 0,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: const Icon(Icons.check, color: Color(0xFF2563EB), size: 16),
+        child: _isUploading 
+          ? const SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: const Icon(Icons.check, color: Color(0xFF2563EB), size: 16),
+                ),
+                const SizedBox(width: 12),
+                Flexible(child: FittedBox(child: Text(widget.transactionToEdit != null ? "Save Transaction" : "Add Transaction", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)))),
+              ],
             ),
-            const SizedBox(width: 12),
-            Flexible(child: FittedBox(child: Text(widget.transactionToEdit != null ? "Save Transaction" : "Add Transaction", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)))),
-          ],
-        ),
       ),
     );
   }

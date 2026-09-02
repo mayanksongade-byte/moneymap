@@ -100,14 +100,18 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: _buildAppBar(colors),
-      body: Column(
+      body: Stack(
         children: [
-          _buildFilterTabs(colors, provider),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _buildBody(colors, currency, provider, filtered, grouped, sortedKeys, totalIncome, totalExpense),
-            ),
+          Column(
+            children: [
+              _buildFilterTabs(colors, provider),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _buildBody(colors, currency, provider, filtered, grouped, sortedKeys, totalIncome, totalExpense),
+                ),
+              ),
+            ],
           ),
         ],
       ),

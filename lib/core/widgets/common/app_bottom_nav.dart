@@ -151,6 +151,7 @@ class _AppBottomNavState extends State<AppBottomNav>
           SizedBox(
             height: barHeight,
             child: LayoutBuilder(
+
               builder: (context, c) {
                 final itemW = c.maxWidth / _items.length;
                 final pillW = itemW * 0.85;

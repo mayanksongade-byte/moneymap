@@ -381,154 +381,158 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
       },
       child: Scaffold(
         backgroundColor: colors.background,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Row(
-                  children: [
-                    _IconBtn(
-                      icon: Icons.arrow_back_ios_new_rounded,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        _handleBack();
-                      },
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text('Categories',
-                                style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: colors.textPrimary)),
-                          ),
-                          Text(
-                            '${expenseCount + incomeCount} total \u00b7 organize your spending',
-                            style: TextStyle(
-                                fontSize: 12, color: colors.textSecondary),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    _IconBtn(
-                      icon: _searchOpen
-                          ? Icons.close_rounded
-                          : Icons.search_rounded,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _searchOpen = !_searchOpen;
-                          if (!_searchOpen) {
-                            _searchCtrl.clear();
-                            _query = '';
-                          }
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                child: _searchOpen
-                    ? Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                        child: TextField(
-                          controller: _searchCtrl,
-                          autofocus: true,
-                          style: TextStyle(color: colors.textPrimary),
-                          onChanged: (v) => setState(() => _query = v),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: 'Search categories',
-                            hintStyle: TextStyle(color: colors.textHint),
-                            prefixIcon: Icon(Icons.search_rounded,
-                                size: 20, color: colors.textSecondary),
-                            filled: true,
-                            fillColor: colors.surfaceVariant,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Row(
+                      children: [ 
+                        _IconBtn(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _handleBack();
+                          },
                         ),
-                      )
-                    : const SizedBox(width: double.infinity),
-              ),
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 46,
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceVariant,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, c) {
-                      final w = c.maxWidth / 2;
-                      return Stack(
-                        children: [
-                          AnimatedAlign(
-                            duration: const Duration(milliseconds: 1),
-                            alignment:
-                                Alignment((_tabPos.clamp(0, 1) * 2) - 1, 0),
-                            child: Container(
-                              width: w,
-                              height: double.infinity,
-                              decoration: BoxDecoration(
-                                color: colors.surface,
-                                borderRadius: BorderRadius.circular(11),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: accent.withValues(alpha: .22),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Row(
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _pillTab(
-                                  'Expense', 0, expenseCount, AppColors.error),
-                              _pillTab(
-                                  'Income', 1, incomeCount, AppColors.success),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text('Categories',
+                                    style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: colors.textPrimary)),
+                              ),
+                              Text(
+                                '${expenseCount + incomeCount} total \u00b7 organize your spending',
+                                style: TextStyle(
+                                    fontSize: 12, color: colors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ],
                           ),
-                        ],
-                      );
-                    },
+                        ),
+                        _IconBtn(
+                          icon: _searchOpen
+                              ? Icons.close_rounded
+                              : Icons.search_rounded,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              _searchOpen = !_searchOpen;
+                              if (!_searchOpen) {
+                                _searchCtrl.clear();
+                                _query = '';
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    child: _searchOpen
+                        ? Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                            child: TextField(
+                              controller: _searchCtrl,
+                              autofocus: true,
+                              style: TextStyle(color: colors.textPrimary),
+                              onChanged: (v) => setState(() => _query = v),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: 'Search categories',
+                                hintStyle: TextStyle(color: colors.textHint),
+                                prefixIcon: Icon(Icons.search_rounded,
+                                    size: 20, color: colors.textSecondary),
+                                filled: true,
+                                fillColor: colors.surfaceVariant,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox(width: double.infinity),
+                  ),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      height: 46,
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          final w = c.maxWidth / 2;
+                          return Stack(
+                            children: [
+                              AnimatedAlign(
+                                duration: const Duration(milliseconds: 1),
+                                alignment:
+                                    Alignment((_tabPos.clamp(0, 1) * 2) - 1, 0),
+                                child: Container(
+                                  width: w,
+                                  height: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: colors.surface,
+                                    borderRadius: BorderRadius.circular(11),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: accent.withValues(alpha: .22),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  _pillTab(
+                                      'Expense', 0, expenseCount, AppColors.error),
+                                  _pillTab(
+                                      'Income', 1, incomeCount, AppColors.success),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        _buildGrid(context, 'expense'),
+                        _buildGrid(context, 'income'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    _buildGrid(context, 'expense'),
-                    _buildGrid(context, 'income'),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         floatingActionButton:

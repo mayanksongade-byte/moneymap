@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:moneymap/features/auth/presentation/providers/app_auth_provider.dart';
 import 'package:moneymap/features/home/data/models/category_model.dart';
 import 'package:moneymap/features/category/data/services/category_service.dart';
 
 class CategoryProvider extends ChangeNotifier {
-  // GetIt instance નો સીધો ઉપયોગ કરવાથી "undefined" એરર નહીં આવે
   final CategoryService _service = GetIt.instance<CategoryService>();
 
   StreamSubscription<List<CategoryModel>>? _subscription;
@@ -13,6 +14,29 @@ class CategoryProvider extends ChangeNotifier {
   List<CategoryModel> _customCategories = [];
   bool _isLoading = false;
   String? _error;
+
+  String? _currentUserId;
+  AuthStatus? _currentStatus;
+
+  void updateAuth(String? id, AuthStatus status) {
+    final isStatusResolved = status != AuthStatus.initial;
+    final idChanged = _currentUserId != id;
+    final statusBecameResolved = _currentStatus == AuthStatus.initial && isStatusResolved;
+
+    if (!idChanged && !statusBecameResolved) return;
+
+    _currentUserId = id;
+    _currentStatus = status;
+    
+    if (id != null && isStatusResolved) {
+      loadCategories();
+    } else if (isStatusResolved && id == null) {
+      _customCategories = [];
+      notifyListeners();
+    }
+  }
+
+  void updateUserId(String? id) => updateAuth(id, AuthStatus.authenticated);
 
   List<CategoryModel> get customCategories => _customCategories;
   bool get isLoading => _isLoading;
@@ -40,6 +64,7 @@ class CategoryProvider extends ChangeNotifier {
 
   void loadCategories() {
     _subscription?.cancel();
+    
     _isLoading = true;
     notifyListeners();
 
@@ -61,12 +86,9 @@ class CategoryProvider extends ChangeNotifier {
   Future<bool> addCategory(CategoryModel category) async {
     _isLoading = true;
     notifyListeners();
+
     try {
-      await _service.addCategory(category).timeout(const Duration(seconds: 4));
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } on TimeoutException {
+      await _service.addCategory(category);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -81,12 +103,9 @@ class CategoryProvider extends ChangeNotifier {
   Future<bool> updateCategory(CategoryModel category) async {
     _isLoading = true;
     notifyListeners();
+
     try {
-      await _service.updateCategory(category).timeout(const Duration(seconds: 4));
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } on TimeoutException {
+      await _service.updateCategory(category);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -100,10 +119,7 @@ class CategoryProvider extends ChangeNotifier {
 
   Future<bool> deleteCategory(String id) async {
     try {
-      await _service.deleteCategory(id).timeout(const Duration(seconds: 4));
-      notifyListeners();
-      return true;
-    } on TimeoutException {
+      await _service.deleteCategory(id);
       notifyListeners();
       return true;
     } catch (e) {

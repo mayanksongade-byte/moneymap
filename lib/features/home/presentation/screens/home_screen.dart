@@ -18,7 +18,6 @@ import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/providers/notification_provider.dart';
-import 'package:moneymap/core/providers/connectivity_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -105,35 +104,58 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'Good Evening 🌙';
   }
 
-  Future<void> _handleDelete(TransactionModel t) async {
+  Future<bool> _handleDelete(TransactionModel t) async {
     final provider = context.read<TransactionProvider>();
     final messenger = ScaffoldMessenger.of(context);
+    
+    if (t.id == null) return false;
 
-    // Finalize any existing pending deletions and hide current snackbar
-    provider.finalizeAllPending();
-    messenger.removeCurrentSnackBar();
+    // 1. FAST Reachability check to prevent swiping while clearly offline
+    final isOnline = await provider.checkServerReachability()
+        .timeout(const Duration(milliseconds: 1500), onTimeout: () => false);
+    
+    if (!isOnline) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please check your internet connection and try again.')),
+        );
+      }
+      return false; // Blocks the Dismissible
+    }
 
-    // Optimistic UI removal via staging
-    provider.stageDeletion(t);
+    // 2. Stage deletion locally (synchronous, fast)
+    provider.stageDeletion(t.id!);
 
+    // Show Undo SnackBar
+    bool undone = false;
+    messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
         content: const Text('Transaction deleted'),
         duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
           label: 'UNDO',
-          textColor: AppColors.primary,
           onPressed: () {
-            provider.undoDeletion(t.id!);
+            undone = true;
+            provider.unstageDeletion(t.id!);
           },
         ),
       ),
-    ).closed.then((reason) {
-      if (reason != SnackBarClosedReason.action) {
-        provider.finalizeDeletion(t.id!);
+    ).closed.then((reason) async {
+      // Commit if not undone (reason != action)
+      if (!undone && reason != SnackBarClosedReason.action) {
+        final success = await provider.deleteTransaction(t.id!);
+        if (!success) {
+          // Restore if failed (Offline/Error)
+          provider.unstageDeletion(t.id!);
+          messenger.showSnackBar(
+            SnackBar(content: Text(provider.error ?? 'Please check your internet connection and try again.')),
+          );
+        }
       }
     });
+
+    return true;
   }
 
   @override
@@ -174,43 +196,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               },
             ),
           ),
-          _buildOfflineIndicator(context),
         ],
       ),
     );
   }
 
-  Widget _buildOfflineIndicator(BuildContext context) {
-    final isOffline = context.watch<ConnectivityProvider>().isOffline;
-    if (!isOffline) return const SizedBox.shrink();
-
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 5,
-      left: 16,
-      right: 16,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
-              SizedBox(width: 8),
-              Text(
-                'Offline Mode - Changes will sync later',
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // Removed old _buildOfflineIndicator as it's now a common widget
 
   Widget _buildCurrentState(
       BuildContext context,
@@ -405,8 +396,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildPremiumHeader(BuildContext context) {
     final colors = context.colors;
-    final user = context.watch<AppAuthProvider>().user;
-    final name = (user?.displayName?.split(' ').first ?? 'MoneyMapper').toUpperCase();
+    final authProvider = context.watch<AppAuthProvider>();
+    final displayName = authProvider.user?.displayName;
+    final name = (displayName?.split(' ').first ?? 'MoneyMapper').toUpperCase();
     final initial = name.isNotEmpty ? name[0] : 'M';
 
     return SliverAppBar(

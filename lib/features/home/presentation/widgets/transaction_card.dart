@@ -14,7 +14,7 @@ class TransactionCard extends StatelessWidget {
   final String icon;
   final String paymentMode;
   final VoidCallback? onTap;
-  final Future<void> Function()? onDelete;
+  final Future<bool> Function()? onDelete;
 
   const TransactionCard({
     super.key,
@@ -116,11 +116,15 @@ class TransactionCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        date,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Text(
+                            date,
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -153,8 +157,13 @@ class TransactionCard extends StatelessWidget {
         child: Dismissible(
           key: Key(id!),
           direction: DismissDirection.endToStart,
-          confirmDismiss: (dir) => Future.value(true),
-          onDismissed: (dir) => onDelete?.call(),
+          confirmDismiss: (dir) async {
+            final success = await onDelete?.call();
+            return success ?? false;
+          },
+          onDismissed: (dir) {
+            // Data removal is handled via the provider update triggered by onDelete
+          },
           background: Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 20),

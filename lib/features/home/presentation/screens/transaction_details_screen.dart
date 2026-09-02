@@ -235,31 +235,56 @@ class TransactionDetailsScreen extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      final provider = Provider.of<TransactionProvider>(context, listen: false);
+      final provider = context.read<TransactionProvider>();
       final messenger = ScaffoldMessenger.of(context);
+      
+      if (transaction.id == null) return;
+      
+      // 1. Check server reachability
+      final isOnline = await provider.checkServerReachability()
+          .timeout(const Duration(seconds: 2), onTimeout: () => false);
+          
+      if (!isOnline) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please check your internet connection and try again.')),
+          );
+        }
+        return;
+      }
 
-      provider.finalizeAllPending();
-      messenger.removeCurrentSnackBar();
+      // 2. Stage deletion
+      provider.stageDeletion(transaction.id!);
+      
+      // 2. Pop back to list
+      if (context.mounted) Navigator.pop(context);
 
-      provider.stageDeletion(transaction);
-      Navigator.pop(context);
-
+      // 3. Show Undo SnackBar (on the messenger context, which persists after pop)
+      bool undone = false;
+      messenger.clearSnackBars();
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Transaction deleted'),
           duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
             label: 'UNDO',
-            textColor: AppColors.primary,
             onPressed: () {
-              provider.undoDeletion(transaction.id!);
+              undone = true;
+              provider.unstageDeletion(transaction.id!);
             },
           ),
         ),
-      ).closed.then((reason) {
-        if (reason != SnackBarClosedReason.action) {
-          provider.finalizeDeletion(transaction.id!);
+      ).closed.then((reason) async {
+        // 4. Commit if not undone
+        if (!undone && reason != SnackBarClosedReason.action) {
+          final success = await provider.deleteTransaction(transaction.id!);
+          if (!success) {
+            // Restore if failed (Offline)
+            provider.unstageDeletion(transaction.id!);
+            messenger.showSnackBar(
+              SnackBar(content: Text(provider.error ?? 'Please check your internet connection and try again.')),
+            );
+          }
         }
       });
     }

@@ -309,12 +309,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // 1. Update Firebase Auth Profile (Immediate UI update)
           await user.updateDisplayName(newName);
           
-          // 2. Update Firestore (Sync with DB)
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-            'name': newName,
-            'displayName': newName,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          // 2. Update Firestore (Ensuring Online-First via Transaction)
+          await FirebaseFirestore.instance.runTransaction((transaction) async {
+            final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+            transaction.set(docRef, {
+              'name': newName,
+              'displayName': newName,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          }).timeout(const Duration(seconds: 5));
           
           // 3. Force reload and refresh provider
           await user.reload();
@@ -323,7 +326,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _showToast('Profile updated!');
         }
       } catch (e) {
-        _showToast('Failed to update profile.', isError: true);
+        if (e is TimeoutException || (e is FirebaseException && (e.code == 'unavailable' || e.code == 'deadline-exceeded'))) {
+          _showToast('Please check your internet connection and try again.', isError: true);
+        } else {
+          _showToast('Failed to update profile.', isError: true);
+        }
         debugPrint("Update Profile Error: $e");
       } finally {
         if (mounted) setState(() => _isBusy = false);

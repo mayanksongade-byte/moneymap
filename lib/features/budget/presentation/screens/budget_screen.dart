@@ -8,7 +8,6 @@ import '../../../home/presentation/providers/transaction_provider.dart';
 import '../../../category/presentation/providers/category_provider.dart';
 import '../providers/budget_provider.dart';
 import '../../../../core/providers/currency_provider.dart';
-import '../../../../core/providers/connectivity_provider.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -712,9 +711,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  Text("Monthly Budget",
-                                      style: TextStyle(
-                                          fontSize: 14, fontWeight: FontWeight.w600, color: colors.textSecondary)),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text("Monthly Budget",
+                                          style: TextStyle(
+                                              fontSize: 14, fontWeight: FontWeight.w600, color: colors.textSecondary)),
+                                    ],
+                                  ),
                                   const SizedBox(height: 24),
                                   Stack(
                                     alignment: Alignment.center,
@@ -1228,7 +1232,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     ),
                   ),
                 ),
-                _buildOfflineIndicator(context),
               ],
             ),
           ),
@@ -1237,37 +1240,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     );
   }
 
-  Widget _buildOfflineIndicator(BuildContext context) {
-    final isOffline = context.watch<ConnectivityProvider>().isOffline;
-    if (!isOffline) return const SizedBox.shrink();
-
-    return Positioned(
-      top: 5,
-      left: 16,
-      right: 16,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
-              SizedBox(width: 8),
-              Text(
-                'Offline Mode - Changes will sync later',
-                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // Removed old _buildOfflineIndicator as it's now a common widget
 
   Widget _buildMonthSelector(dynamic colors) {
     return GestureDetector(

@@ -173,13 +173,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: notificationProvider.transactionUpdatesEnabled,
               onChanged: (v) => notificationProvider.setTransactionUpdatesEnabled(v),
             ),
-            _buildToggleTile(
-              icon: Icons.sync_problem_rounded,
-              title: "Sync Errors",
-              subtitle: "Alerts when data synchronization fails",
-              value: notificationProvider.syncErrorsEnabled,
-              onChanged: (v) => notificationProvider.setSyncErrorsEnabled(v),
-            ),
             const SizedBox(height: 12),
             _buildSectionLabel("Schedule"),
             _buildReminderTile(

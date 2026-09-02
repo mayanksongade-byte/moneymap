@@ -21,11 +21,10 @@ class NotificationProvider extends ChangeNotifier {
   bool _eveningEnabled = true;
   TimeOfDay _eveningTime = const TimeOfDay(hour: 20, minute: 0);
 
-  // Notification Type Toggles (Part B.4)
+  // Notification Type Toggles
   bool _budgetAlertsEnabled = true;
   bool _remindersEnabled = true;
   bool _transactionUpdatesEnabled = true;
-  bool _syncErrorsEnabled = true;
 
   // Budget alert tracking
   String _lastBudgetAlertMonth = ''; 
@@ -41,11 +40,10 @@ class NotificationProvider extends ChangeNotifier {
   // Track which IDs have been handled (added or deleted) so they don't reappear
   Set<String> _handledIds = {};
 
-  // Debounce/Change detection (Part A.3)
+  // Debounce/Change detection
   double? _lastCheckedExpense;
   double? _lastCheckedLimit;
   int? _lastTransactionCount;
-  Timer? _debounceTimer;
 
   // Cache for initial check
   double? _pendingExpense;
@@ -64,7 +62,6 @@ class NotificationProvider extends ChangeNotifier {
   bool get budgetAlertsEnabled => _budgetAlertsEnabled;
   bool get remindersEnabled => _remindersEnabled;
   bool get transactionUpdatesEnabled => _transactionUpdatesEnabled;
-  bool get syncErrorsEnabled => _syncErrorsEnabled;
 
   Future<void> loadSettings() async {
     try {
@@ -86,7 +83,6 @@ class NotificationProvider extends ChangeNotifier {
       _budgetAlertsEnabled = prefs.getBool('budget_alerts_enabled') ?? true;
       _remindersEnabled = prefs.getBool('reminders_enabled') ?? true;
       _transactionUpdatesEnabled = prefs.getBool('transaction_updates_enabled') ?? true;
-      _syncErrorsEnabled = prefs.getBool('sync_errors_enabled') ?? true;
 
       _lastBudgetAlertMonth = prefs.getString('last_budget_alert_month') ?? '';
       _sent80Alert = prefs.getBool('sent_80_alert') ?? false;
@@ -108,7 +104,7 @@ class NotificationProvider extends ChangeNotifier {
       if (handledJson != null) {
         _handledIds = Set<String>.from(jsonDecode(handledJson));
       } else {
-        // Migration from SharedPreferences (Part A.1)
+        // Migration from SharedPreferences
         final List<String> handledList = prefs.getStringList('handled_notification_ids') ?? [];
         if (handledList.isNotEmpty) {
           _handledIds = handledList.toSet();
@@ -141,7 +137,7 @@ class NotificationProvider extends ChangeNotifier {
   // --- HISTORY MANAGEMENT ---
 
   Future<void> _loadHistory(SharedPreferences prefs) async {
-    // Attempt to load from Secure Storage (Part A.1)
+    // Attempt to load from Secure Storage
     String? historyJson;
     try {
       historyJson = await _secureStorage.read(key: 'notification_history');
@@ -189,11 +185,10 @@ class NotificationProvider extends ChangeNotifier {
   void addNotification(NotificationHistoryModel notification) {
     if (!_notificationsEnabled || !_isInitialized) return;
     
-    // Check type-specific settings (Part B.4)
+    // Check type-specific settings
     if (notification.type == 'budgetAlert' && !_budgetAlertsEnabled) return;
     if (notification.type == 'reminder' && !_remindersEnabled) return;
     if (notification.type == 'transactionAdded' && !_transactionUpdatesEnabled) return;
-    if (notification.type == 'syncFailed' && !_syncErrorsEnabled) return;
     
     // Support legacy type names during transition
     if ((notification.type == 'budget_alert' || notification.type == 'budget_exceeded') && !_budgetAlertsEnabled) return;
@@ -248,7 +243,7 @@ class NotificationProvider extends ChangeNotifier {
   void updateSmartInsights(List<TransactionModel> transactions, String symbol) {
     if (!_notificationsEnabled || !_isInitialized || !_remindersEnabled) return;
 
-    // Change detection (Part A.3)
+    // Change detection
     if (_lastTransactionCount == transactions.length) return;
     _lastTransactionCount = transactions.length;
 
@@ -325,8 +320,6 @@ class NotificationProvider extends ChangeNotifier {
     final title = 'Transaction Added ✅';
     final body = "Success! You added ${transaction.category} for $formattedAmount. Your new balance is $formattedBalance. 💰";
     
-    // Generate a unique ID for the notification to avoid collisions
-    // Especially for new transactions where id might be null
     final notificationId = transaction.id != null 
         ? transaction.id.hashCode 
         : DateTime.now().millisecondsSinceEpoch % 100000;
@@ -340,27 +333,6 @@ class NotificationProvider extends ChangeNotifier {
     addNotification(NotificationHistoryModel(
       id: 'tx_${transaction.id ?? 'new'}_${DateTime.now().millisecondsSinceEpoch}',
       type: 'transactionAdded',
-      title: title,
-      message: body,
-      createdAt: DateTime.now(),
-    ));
-  }
-
-  void notifySyncFailed(String error) {
-    if (!_notificationsEnabled || !_syncErrorsEnabled || !_isInitialized) return;
-
-    final title = 'Sync Failed ⚠️';
-    final body = "We couldn't sync your data: $error. Please check your connection. 🔄";
-    
-    _notificationService.showBudgetAlert(
-      id: 3000,
-      title: title,
-      body: body,
-    );
-
-    addNotification(NotificationHistoryModel(
-      id: 'sync_fail_${DateTime.now().millisecondsSinceEpoch}',
-      type: 'syncFailed',
       title: title,
       message: body,
       createdAt: DateTime.now(),
@@ -495,13 +467,6 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setSyncErrorsEnabled(bool value) async {
-    _syncErrorsEnabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sync_errors_enabled', value);
-    notifyListeners();
-  }
-
   Future<void> setNotificationsEnabled(bool value) async {
     _notificationsEnabled = value;
     final prefs = await SharedPreferences.getInstance();
@@ -630,5 +595,4 @@ class NotificationProvider extends ChangeNotifier {
     await prefs.setBool('sent_80_alert', false);
     await prefs.setBool('sent_100_alert', false);
   }
-
 }

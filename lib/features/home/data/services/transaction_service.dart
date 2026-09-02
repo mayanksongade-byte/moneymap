@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/transaction_model.dart';
 
 class TransactionService {
@@ -13,30 +15,83 @@ class TransactionService {
   CollectionReference get _transactionsRef =>
       _firestore.collection('transactions');
 
+  /// Helper to ensure operation is performed online and NOT queued if offline.
+  Future<T> _runOnlineWrite<T>(Future<T> Function(Transaction) action) async {
+    try {
+      // 1. Pre-flight check: Verify we can actually reach the server.
+      // This is crucial because runTransaction.timeout() doesn't cancel the native operation.
+      final user = _auth.currentUser;
+      if (user == null) throw 'User not logged in';
+      
+      final isReachable = await checkServerReachability();
+      if (!isReachable) {
+        throw 'Please check your internet connection and try again.';
+      }
+
+      // 2. Perform the actual write in a transaction
+      return await _firestore.runTransaction(action).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      if (kDebugMode) print('DEBUG: Firestore write error: $e');
+      if (e is String) rethrow; // Re-throw our custom error message
+      
+      if (e is TimeoutException || 
+          (e is FirebaseException && (e.code == 'unavailable' || e.code == 'deadline-exceeded'))) {
+        throw 'Please check your internet connection and try again.';
+      }
+      rethrow;
+    }
+  }
+
+  /// Verifies if the Firebase backend is reachable via a server-source read.
+  Future<bool> checkServerReachability() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      // Fast server-only metadata check
+      await _transactionsRef
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 2));
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('DEBUG: Reachability check failed: $e');
+      return false;
+    }
+  }
+
   // Add transaction
   Future<TransactionModel> addTransaction(TransactionModel transaction) async {
-    if (_userId == null) throw Exception('User not logged in');
+    final userId = _userId;
+    if (userId == null) throw 'User not logged in';
 
     final newTransaction = transaction.copyWith(
-      userId: _userId!,
+      userId: userId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
-    final docRef = await _transactionsRef.add(newTransaction.toMap());
+    final docRef = _transactionsRef.doc();
+    
+    await _runOnlineWrite((tx) async {
+      tx.set(docRef, newTransaction.toMap());
+    });
+
     return newTransaction.copyWith(id: docRef.id);
   }
 
   // Get all transactions for current user
   Stream<List<TransactionModel>> getTransactions() {
-    if (_userId == null) {
+    final userId = _userId;
+    if (userId == null) {
       return Stream.value([]);
     }
 
     return _transactionsRef
-        .where('userId', isEqualTo: _userId!)
+        .where('userId', isEqualTo: userId)
         .orderBy('date', descending: true)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((snapshot) {
       return snapshot.docs
           .map((doc) => TransactionModel.fromFirestore(doc))
@@ -46,7 +101,8 @@ class TransactionService {
 
   // Get transactions for current month
   Stream<List<TransactionModel>> getMonthlyTransactions() {
-    if (_userId == null) {
+    final userId = _userId;
+    if (userId == null) {
       return Stream.value([]);
     }
 
@@ -55,11 +111,11 @@ class TransactionService {
     final startOfNextMonth = DateTime(now.year, now.month + 1, 1);
 
     return _transactionsRef
-        .where('userId', isEqualTo: _userId!)
+        .where('userId', isEqualTo: userId)
         .where('date', isGreaterThanOrEqualTo: startOfMonth)
         .where('date', isLessThan: startOfNextMonth)
         .orderBy('date', descending: true)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((snapshot) {
       return snapshot.docs
           .map((doc) => TransactionModel.fromFirestore(doc))
@@ -69,39 +125,34 @@ class TransactionService {
 
   // Delete transaction
   Future<void> deleteTransaction(String id) async {
-    if (_userId == null) throw Exception('User not logged in');
-    final document = await _transactionsRef.doc(id).get();
-    final data = document.data() as Map<String, dynamic>?;
-    if (!document.exists || data?['userId'] != _userId) {
-      throw Exception('Transaction not found');
-    }
+    if (_userId == null) throw 'User not logged in';
     
-    await document.reference.delete();
+    await _runOnlineWrite((tx) async {
+      tx.delete(_firestore.collection('transactions').doc(id));
+    });
   }
 
   // Update transaction
   Future<void> updateTransaction(TransactionModel transaction) async {
-    if (_userId == null) throw Exception('User not logged in');
-    if (transaction.id == null) throw Exception('Transaction ID is null');
+    if (_userId == null) throw 'User not logged in';
+    if (transaction.id == null) throw 'Transaction ID is null';
 
     final updated = transaction.copyWith(
       updatedAt: DateTime.now(),
     );
 
-    final document = await _transactionsRef.doc(transaction.id).get();
-    final data = document.data() as Map<String, dynamic>?;
-    if (!document.exists || data?['userId'] != _userId) {
-      throw Exception('Transaction not found');
-    }
-    await document.reference.update(updated.toMap());
+    await _runOnlineWrite((tx) async {
+      tx.update(_firestore.collection('transactions').doc(transaction.id), updated.toMap());
+    });
   }
 
   // Get total income
   Future<double> getTotalIncome() async {
-    if (_userId == null) return 0.0;
+    final userId = _userId;
+    if (userId == null) return 0.0;
 
     final snapshot = await _transactionsRef
-        .where('userId', isEqualTo: _userId!)
+        .where('userId', isEqualTo: userId)
         .where('type', isEqualTo: 'income')
         .get();
 
@@ -115,10 +166,11 @@ class TransactionService {
 
   // Get total expense
   Future<double> getTotalExpense() async {
-    if (_userId == null) return 0.0;
+    final userId = _userId;
+    if (userId == null) return 0.0;
 
     final snapshot = await _transactionsRef
-        .where('userId', isEqualTo: _userId!)
+        .where('userId', isEqualTo: userId)
         .where('type', isEqualTo: 'expense')
         .get();
 
@@ -132,10 +184,11 @@ class TransactionService {
 
   // Get category wise summary
   Future<Map<String, double>> getCategorySummary() async {
-    if (_userId == null) return {};
+    final userId = _userId;
+    if (userId == null) return {};
 
     final snapshot = await _transactionsRef
-        .where('userId', isEqualTo: _userId!)
+        .where('userId', isEqualTo: userId)
         .where('type', isEqualTo: 'expense')
         .get();
 

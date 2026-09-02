@@ -11,7 +11,6 @@ import 'core/providers/notification_provider.dart';
 import 'config/routes/app_router.dart';
 import 'core/services/service_locator.dart';
 import 'core/services/notification_service.dart';
-import 'core/providers/connectivity_provider.dart';
 import 'features/auth/presentation/providers/app_auth_provider.dart';
 import 'features/home/presentation/providers/transaction_provider.dart';
 import 'features/budget/presentation/providers/budget_provider.dart';
@@ -25,7 +24,6 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Enable Firestore offline persistence
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
@@ -49,19 +47,29 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => AppAuthProvider()),
-        ChangeNotifierProvider(create: (_) => TransactionProvider()..loadTransactions()..loadMonthlyTransactions()),
+        ChangeNotifierProxyProvider<AppAuthProvider, TransactionProvider>(
+          create: (_) => TransactionProvider(),
+          update: (_, auth, tx) => tx!..updateAuth(auth.user?.uid, auth.status),
+        ),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => BudgetProvider()..loadBudget()),
-        ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProxyProvider<AppAuthProvider, BudgetProvider>(
+          create: (_) => BudgetProvider(),
+          update: (_, auth, budget) => budget!..updateAuth(auth.user?.uid, auth.status),
+        ),
+        ChangeNotifierProxyProvider<AppAuthProvider, CategoryProvider>(
+          create: (_) => CategoryProvider(),
+          update: (_, auth, category) => category!..updateAuth(auth.user?.uid, auth.status),
+        ),
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ChangeNotifierProxyProvider4<TransactionProvider, BudgetProvider, CurrencyProvider, AppAuthProvider, NotificationProvider>(
           create: (_) => NotificationProvider()..loadSettings(),
           update: (context, transactionProvider, budgetProvider, currencyProvider, authProvider, notificationProvider) {
             if (notificationProvider != null) {
               // 0. UPDATE USER NAME: For personalized notifications
-              notificationProvider.updateUserName(authProvider.user?.displayName?.split(' ').first);
+              notificationProvider.updateUserName(
+                authProvider.user?.displayName?.split(' ').first
+              );
 
               // 1. INSTANT BUDGET CHECK: When limit is crossed
               notificationProvider.checkBudgetStatus(

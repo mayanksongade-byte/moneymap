@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../../../home/data/models/category_model.dart';
 
 class CategoryService {
@@ -7,6 +9,32 @@ class CategoryService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String? get _userId => _auth.currentUser?.uid;
+
+  /// Helper to ensure operation is performed online.
+  Future<T> _runOnlineWrite<T>(Future<T> Function(Transaction) action) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw 'Not logged in';
+
+      // Pre-flight reachability check
+      await _firestore.collection('categories')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 2))
+          .catchError((_) => throw 'Please check your internet connection and try again.');
+
+      return await _firestore.runTransaction(action).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      if (kDebugMode) print('DEBUG: Firestore write error: $e');
+      if (e is String) rethrow;
+      if (e is TimeoutException || 
+          (e is FirebaseException && (e.code == 'unavailable' || e.code == 'deadline-exceeded'))) {
+        throw 'Please check your internet connection and try again.';
+      }
+      rethrow;
+    }
+  }
 
   Stream<List<CategoryModel>> getCustomCategories() {
     final userId = _userId;
@@ -30,30 +58,38 @@ class CategoryService {
 
   Future<void> addCategory(CategoryModel category) async {
     final userId = _userId;
-    if (userId == null) throw Exception('Not logged in');
+    if (userId == null) throw 'Not logged in';
 
-    await _firestore.collection('categories').add({
-      'userId': userId,
-      'name': category.name,
-      'icon': category.icon,
-      'type': category.type,
-      'color': category.color,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+    final docRef = _firestore.collection('categories').doc();
+
+    await _runOnlineWrite((tx) async {
+      tx.set(docRef, {
+        'userId': userId,
+        'name': category.name,
+        'icon': category.icon,
+        'type': category.type,
+        'color': category.color,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 
   Future<void> updateCategory(CategoryModel category) async {
-    await _firestore.collection('categories').doc(category.id).update({
-      'name': category.name,
-      'icon': category.icon,
-      'type': category.type,
-      'color': category.color,
-      'updatedAt': FieldValue.serverTimestamp(),
+    await _runOnlineWrite((tx) async {
+      tx.update(_firestore.collection('categories').doc(category.id), {
+        'name': category.name,
+        'icon': category.icon,
+        'type': category.type,
+        'color': category.color,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 
   Future<void> deleteCategory(String id) async {
-    await _firestore.collection('categories').doc(id).delete();
+    await _runOnlineWrite((tx) async {
+      tx.delete(_firestore.collection('categories').doc(id));
+    });
   }
 }

@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
+import '../../../auth/presentation/providers/app_auth_provider.dart';
 import '../../data/models/transaction_model.dart';
 import '../../data/services/transaction_service.dart';
 
@@ -17,8 +17,6 @@ class TransactionProvider extends ChangeNotifier {
   bool _isMonthlyLoading = false;
   String? _error;
 
-  final Map<String, TransactionModel> _pendingDeletions = {};
-
   double _totalIncome = 0;
   double _totalExpense = 0;
 
@@ -29,10 +27,58 @@ class TransactionProvider extends ChangeNotifier {
   String _searchQuery = '';
   String _typeFilter = 'all';
 
-  List<TransactionModel> get transactions =>
-      _transactions.where((t) => t.id == null || !_pendingDeletions.containsKey(t.id)).toList();
-  List<TransactionModel> get monthlyTransactions =>
-      _monthlyTransactions.where((t) => t.id == null || !_pendingDeletions.containsKey(t.id)).toList();
+  String? _currentUserId;
+  AuthStatus? _currentStatus;
+
+  final Set<String> _stagedDeletions = {};
+
+  TransactionProvider();
+
+  void updateAuth(String? id, AuthStatus status) {
+    // Only reload if user ID changed OR status moved from initial to something else
+    final isStatusResolved = status != AuthStatus.initial;
+    final idChanged = _currentUserId != id;
+    final statusBecameResolved = _currentStatus == AuthStatus.initial && isStatusResolved;
+
+    if (!idChanged && !statusBecameResolved) return;
+
+    if (kDebugMode) {
+      print('DEBUG-TX: Auth updated. ID: $id, Status: $status. isResolved: $isStatusResolved');
+    }
+
+    _currentUserId = id;
+    _currentStatus = status;
+    
+    if (id != null && isStatusResolved) {
+      loadTransactions();
+      loadMonthlyTransactions();
+    } else if (isStatusResolved && id == null) {
+      // Genuinely logged out
+      _transactions = [];
+      _monthlyTransactions = [];
+      notifyListeners();
+    }
+  }
+
+  // Deprecated - kept for compatibility during migration if needed
+  void updateUserId(String? id) => updateAuth(id, AuthStatus.authenticated);
+
+  Future<bool> checkServerReachability() => _service.checkServerReachability();
+
+  List<TransactionModel> get transactions => 
+      _transactions.where((t) => t.id == null || !_stagedDeletions.contains(t.id)).toList();
+  List<TransactionModel> get monthlyTransactions => 
+      _monthlyTransactions.where((t) => t.id == null || !_stagedDeletions.contains(t.id)).toList();
+
+  void stageDeletion(String id) {
+    _stagedDeletions.add(id);
+    notifyListeners();
+  }
+
+  void unstageDeletion(String id) {
+    _stagedDeletions.remove(id);
+    notifyListeners();
+  }
 
   bool get isLoading => _isLoading;
   bool get isMonthlyLoading => _isMonthlyLoading;
@@ -68,55 +114,33 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> _hasInternet() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
-  }
-
   Future<void> loadTransactions() async {
     _transactionsSubscription?.cancel();
+    
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    bool hasDataReceived = false;
-
-    // 1. Start listening to the stream immediately. 
-    // Firestore will emit cached data almost instantly if it exists.
     _transactionsSubscription = _service.getTransactions().listen(
       (newTransactions) {
-        hasDataReceived = true;
         _transactions = newTransactions;
         _calculateTotals();
         _isLoading = false;
-        _error = null; // Data arrived (cache or server), clear error.
+        _error = null;
         _lastRefreshedAt = DateTime.now();
         notifyListeners();
       },
       onError: (error) {
-        if (!hasDataReceived) {
-          _error = error.toString();
-          _isLoading = false;
-          notifyListeners();
-        }
+        _error = error.toString();
+        _isLoading = false;
+        notifyListeners();
       },
     );
-
-    // 2. Smart Delay: If after 3 seconds, still loading and NO data received, check connectivity.
-    // This allows offline users with cache to see their data, but users with no cache to see an error.
-    Future.delayed(const Duration(seconds: 3), () async {
-      if (!hasDataReceived && _isLoading) {
-        if (!await _hasInternet()) {
-          _error = "No internet connection. Please check your settings.";
-          _isLoading = false;
-          notifyListeners();
-        }
-      }
-    });
   }
 
   Future<void> loadMonthlyTransactions() async {
     _monthlySubscription?.cancel();
+    
     _isMonthlyLoading = true;
     _error = null;
     notifyListeners();
@@ -146,42 +170,12 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<bool> addTransaction(TransactionModel transaction) async {
     _error = null;
-    _isLoading = true;
-    
-    final isExpense = transaction.type.toLowerCase() == 'expense';
-    if (isExpense) {
-      _monthlyExpense += transaction.amount;
-      _totalExpense += transaction.amount;
-    } else {
-      _monthlyIncome += transaction.amount;
-      _totalIncome += transaction.amount;
-    }
-    
-    notifyListeners();
-
+    // Removed global _isLoading to prevent background UI rebuilds/freezes
     try {
-      // Use a timeout to stop the infinite loader if offline.
-      // Firestore still queues this in its local cache for background sync.
-      await _service.addTransaction(transaction).timeout(const Duration(seconds: 4));
-      _isLoading = false;
-      notifyListeners();
+      await _service.addTransaction(transaction);
       return true;
-    } on TimeoutException {
-      // If it times out (offline), Firestore has already saved it locally.
-      // We stop the loader so user can see their transaction.
-      _isLoading = false;
-      notifyListeners();
-      return true; 
     } catch (e) {
-      if (isExpense) {
-        _monthlyExpense -= transaction.amount;
-        _totalExpense -= transaction.amount;
-      } else {
-        _monthlyIncome -= transaction.amount;
-        _totalIncome -= transaction.amount;
-      }
       _error = e.toString();
-      _isLoading = false;
       notifyListeners();
       return false;
     }
@@ -194,19 +188,13 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final results = await Future.wait([
-        _service.getTransactions().first.timeout(const Duration(seconds: 8)),
-        _service.getMonthlyTransactions().first.timeout(const Duration(seconds: 8)),
+      await Future.wait([
+        _service.getTransactions().first,
+        _service.getMonthlyTransactions().first,
       ]);
-      _transactions = results[0];
-      _monthlyTransactions = results[1];
-      _calculateTotals();
-      _calculateMonthlyTotals();
       _lastRefreshedAt = DateTime.now();
     } catch (e) {
-      if (!await _hasInternet()) {
-        _error = "Refresh failed. Check internet connection.";
-      }
+      // Ignore errors on refresh, the stream will handle updates.
     } finally {
       _isLoading = false;
       _isMonthlyLoading = false;
@@ -214,54 +202,24 @@ class TransactionProvider extends ChangeNotifier {
     }
   }
 
-  void stageDeletion(TransactionModel transaction) {
-    if (transaction.id == null) return;
-    if (_pendingDeletions.containsKey(transaction.id)) return;
-    _pendingDeletions[transaction.id!] = transaction;
-    _calculateTotals();
-    _calculateMonthlyTotals();
-    notifyListeners();
-  }
-
-  void undoDeletion(String id) {
-    if (_pendingDeletions.containsKey(id)) {
-      _pendingDeletions.remove(id);
-      _calculateTotals();
-      _calculateMonthlyTotals();
-      notifyListeners();
-    }
-  }
-
-  Future<void> finalizeDeletion(String id) async {
-    final transaction = _pendingDeletions[id];
-    if (transaction != null) {
+  Future<bool> deleteTransaction(String id) async {
+    _error = null;
+    try {
+      await _service.deleteTransaction(id);
+      
+      // Once Firebase confirms, permanently remove from the underlying lists
       _transactions.removeWhere((t) => t.id == id);
       _monthlyTransactions.removeWhere((t) => t.id == id);
-      try {
-        await _service.deleteTransaction(id).timeout(const Duration(seconds: 4));
-      } catch (e) {
-        // Silently fail if offline, deletion is done in UI/cache
-      } finally {
-        _pendingDeletions.remove(id);
-        notifyListeners();
-      }
-    }
-  }
-
-  void finalizeAllPending() {
-    if (_pendingDeletions.isEmpty) return;
-    final ids = _pendingDeletions.keys.toList();
-    for (final id in ids) {
-      finalizeDeletion(id);
-    }
-  }
-
-  Future<bool> deleteTransaction(String id) async {
-    try {
-      await _service.deleteTransaction(id).timeout(const Duration(seconds: 4));
+      
+      // Ensure it's cleared from staged deletions too
+      _stagedDeletions.remove(id);
+      
+      notifyListeners();
       return true;
     } catch (e) {
-      return true; // Still true for cached UI
+      _error = e.toString();
+      notifyListeners();
+      return false;
     }
   }
 
@@ -270,19 +228,14 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<bool> updateTransaction(TransactionModel transaction) async {
-    _isLoading = true;
     _error = null;
-    notifyListeners();
-
     try {
-      await _service.updateTransaction(transaction).timeout(const Duration(seconds: 4));
-      _isLoading = false;
-      notifyListeners();
+      await _service.updateTransaction(transaction);
       return true;
     } catch (e) {
-      _isLoading = false;
+      _error = e.toString();
       notifyListeners();
-      return true;
+      return false; 
     }
   }
 
@@ -290,9 +243,11 @@ class TransactionProvider extends ChangeNotifier {
     double income = 0;
     double expense = 0;
     for (final t in _transactions) {
-      if (t.id != null && _pendingDeletions.containsKey(t.id)) continue;
-      if (t.type.toLowerCase() == 'income') income += t.amount;
-      else if (t.type.toLowerCase() == 'expense') expense += t.amount;
+      if (t.type.toLowerCase() == 'income') {
+        income += t.amount;
+      } else if (t.type.toLowerCase() == 'expense') {
+        expense += t.amount;
+      }
     }
     _totalIncome = income;
     _totalExpense = expense;
@@ -302,9 +257,11 @@ class TransactionProvider extends ChangeNotifier {
     double income = 0;
     double expense = 0;
     for (final t in _monthlyTransactions) {
-      if (t.id != null && _pendingDeletions.containsKey(t.id)) continue;
-      if (t.type.toLowerCase() == 'income') income += t.amount;
-      else if (t.type.toLowerCase() == 'expense') expense += t.amount;
+      if (t.type.toLowerCase() == 'income') {
+        income += t.amount;
+      } else if (t.type.toLowerCase() == 'expense') {
+        expense += t.amount;
+      }
     }
     _monthlyIncome = income;
     _monthlyExpense = expense;

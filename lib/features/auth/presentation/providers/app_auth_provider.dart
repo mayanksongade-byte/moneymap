@@ -8,7 +8,6 @@ import '../../../../core/constants/app_constants.dart';
 
 enum AuthStatus { initial, authenticated, unverified, unauthenticated, guest }
 
-
 class AppAuthProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
@@ -22,30 +21,32 @@ class AppAuthProvider extends ChangeNotifier {
   bool _onboardingComplete = false;
   bool _isSettingsLoaded = false;
 
-  // Getters
   User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isGoogleLoading => _isGoogleLoading;
   String? get error => _error;
   AuthStatus get status => _status;
-  bool get isGuest => _user != null && _user!.isAnonymous;
+  bool get isGuest => _status == AuthStatus.guest;
   bool get onboardingComplete => _onboardingComplete;
-  bool get isInitialized => _status != AuthStatus.initial && _isSettingsLoaded;
+  bool get isInitialized => _isSettingsLoaded;
 
   AppAuthProvider() {
     _init();
   }
 
   Future<void> _init() async {
-    // 1. Load onboarding status from storage
+    // 1. Load onboarding status
     await _loadOnboardingStatus();
+
+    // 2. Reduce initial delay
+    await Future.delayed(const Duration(milliseconds: 100));
 
     final Completer<void> authSettledCompleter = Completer<void>();
 
-    // 2. Start listening for auth changes immediately
+    // 3. Start listening for auth changes
     _authSubscription = _auth.userChanges().listen((user) {
       if (kDebugMode) {
-        print('DEBUG-STREAM: userChanges() emitted user=${user?.uid}, isAnonymous=${user?.isAnonymous}');
+        print('DEBUG-STREAM: userChanges() emitted user=${user?.uid}');
       }
       
       if (user != null) {
@@ -57,22 +58,28 @@ class AppAuthProvider extends ChangeNotifier {
         } else {
           _status = AuthStatus.authenticated;
         }
+
         _markOnboardingComplete();
         if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
-      } else {
-        // If we get a null user, we don't complete yet - we wait for the fallback or timeout
+        notifyListeners();
+      } else if (_isSettingsLoaded) {
+        // Only allow "unauthenticated" from the stream AFTER initial startup is done
         _user = null;
         _status = AuthStatus.unauthenticated;
+        notifyListeners();
       }
-      notifyListeners();
     });
 
-    // 3. Fast Path: Check current user from cache
-    final currentUser = _auth.currentUser;
+    // 4. Check current user from cache (Fast Path)
+    User? currentUser = _auth.currentUser;
+    
+    if (currentUser == null) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      currentUser = _auth.currentUser;
+    }
+
     if (currentUser != null) {
-      if (kDebugMode) {
-        print('DEBUG-INIT: Found currentUser in cache: ${currentUser.uid}');
-      }
+      if (kDebugMode) print('DEBUG-INIT: Found user: ${currentUser.uid}');
       _user = currentUser;
       if (currentUser.isAnonymous) {
         _status = AuthStatus.guest;
@@ -84,42 +91,38 @@ class AppAuthProvider extends ChangeNotifier {
       _markOnboardingComplete();
       if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
     } else {
-      // 4. Fallback Path: Only if cache is empty, try Google silent restore
-      // (Handles Samsung Keystore issue where cache is cleared but Google session exists)
+      // 5. Fallback Path: Only if no user found, try Google silent restore
       _tryGoogleFallback(authSettledCompleter);
     }
 
-    // 5. Wait for a resolution (either cache, stream event, fallback, or timeout)
+    // 6. Final wait for resolution or timeout
     try {
       await authSettledCompleter.future.timeout(const Duration(seconds: 3));
     } catch (_) {
-      if (kDebugMode) print('DEBUG-INIT: Auth initialization timed out');
+      if (kDebugMode) print('DEBUG-INIT: Initialization timeout reached');
+    } finally {
       if (_status == AuthStatus.initial) {
+        _user = null;
         _status = AuthStatus.unauthenticated;
       }
+      _isSettingsLoaded = true;
+      notifyListeners();
     }
-
-    _isSettingsLoaded = true;
-    notifyListeners();
   }
 
   Future<void> _tryGoogleFallback(Completer<void> completer) async {
     try {
-      final googleUser = await _googleSignIn.signInSilently();
+      final googleUser = await _googleSignIn.signInSilently().timeout(const Duration(seconds: 5));
       if (googleUser != null && !completer.isCompleted) {
         final googleAuth = await googleUser.authentication;
         final credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
-        final result = await _auth.signInWithCredential(credential);
-        if (result.user != null) {
-          if (kDebugMode) print('DEBUG-INIT: Session restored via Google fallback');
-          // Stream listener will pick this up and complete the completer
-        }
+        await _auth.signInWithCredential(credential);
       }
     } catch (e) {
-      if (kDebugMode) print('DEBUG-INIT: Google fallback error: $e');
+      if (kDebugMode) print('DEBUG-INIT: Google fallback skipped or failed: $e');
     }
   }
 
@@ -258,9 +261,6 @@ class AppAuthProvider extends ChangeNotifier {
       );
 
       final result = await _auth.signInWithCredential(credential);
-      if (kDebugMode) {
-        print('DEBUG-GOOGLE: Signed in successfully. UID=${result.user?.uid}, isAnonymous=${result.user?.isAnonymous}, providerData=${result.user?.providerData.map((p) => p.providerId).toList()}');
-      }
       _user = result.user;
       _status = AuthStatus.authenticated;
 
@@ -285,6 +285,7 @@ class AppAuthProvider extends ChangeNotifier {
       await _googleSignIn.signOut();
       await _auth.signOut();
       _status = AuthStatus.unauthenticated;
+      _user = null;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -336,7 +337,9 @@ class AppAuthProvider extends ChangeNotifier {
       case 'wrong-password': return 'Incorrect password.';
       case 'invalid-credential': return 'Invalid email or password.';
       case 'email-already-in-use': return 'Email already registered.';
-      default: return 'Authentication failed.';
+      case 'network-request-failed': return 'Please check your internet connection and try again.';
+      case 'too-many-requests': return 'Too many requests. Try again later.';
+      default: return 'Authentication failed. Please try again.';
     }
   }
 
