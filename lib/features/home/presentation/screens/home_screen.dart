@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -18,6 +18,7 @@ import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/providers/notification_provider.dart';
+import 'package:moneymap/core/utils/app_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -65,7 +66,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     void onLoaded() {
       if (!mounted) return;
-      if (!txProvider.isLoading) {
+      // Settle if loading finished OR if we already have transactions (e.g. from cache)
+      if (!txProvider.isLoading || txProvider.transactions.isNotEmpty) {
         txProvider.removeListener(onLoaded);
         setState(() => _settled = true);
         if (txProvider.error == null) {
@@ -177,21 +179,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               final txProvider = context.read<TransactionProvider>();
               final budgetProvider = context.read<BudgetProvider>();
               
-              await txProvider.refreshTransactions();
+              await Future.wait([
+                txProvider.refreshTransactions(),
+                budgetProvider.refreshBudget(),
+              ]);
               
               if (mounted) {
-                budgetProvider.loadBudget();
                 setState(() => _refreshTick++);
               }
             },
-            child: Consumer2<TransactionProvider, BudgetProvider>(
-              builder: (context, txProvider, budgetProvider, _) {
+            child: Consumer<TransactionProvider>(
+              builder: (context, txProvider, _) {
+                // Pre-filter/sort only once per rebuild
                 final allTransactions = txProvider.transactions;
                 final recentTransactions = allTransactions.take(5).toList();
                 
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child: _buildCurrentState(context, txProvider, budgetProvider, allTransactions, recentTransactions),
+                  child: _buildCurrentState(context, txProvider, allTransactions, recentTransactions),
                 );
               },
             ),
@@ -206,7 +211,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildCurrentState(
       BuildContext context,
       TransactionProvider txProvider,
-      BudgetProvider budgetProvider,
       List<TransactionModel> allTransactions,
       List<TransactionModel> recentTransactions,
       ) {
@@ -248,40 +252,60 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ],
 
                   RepaintBoundary(
-                    child: BalanceCard(
-                      key: ValueKey('balance_$_refreshTick'),
-                      balance: txProvider.balance,
-                      income: txProvider.totalIncome,
-                      expense: txProvider.totalExpense,
-                      lastUpdated: txProvider.lastRefreshedAt,
+                    child: Selector<TransactionProvider, Map<String, dynamic>>(
+                      selector: (_, p) => {
+                        'balance': p.balance,
+                        'income': p.totalIncome,
+                        'expense': p.totalExpense,
+                        'lastRefreshedAt': p.lastRefreshedAt,
+                      },
+                      shouldRebuild: (prev, next) => !mapEquals(prev, next),
+                      builder: (context, data, _) => BalanceCard(
+                        key: ValueKey('balance_$_refreshTick'),
+                        balance: data['balance'] as double,
+                        income: data['income'] as double,
+                        expense: data['expense'] as double,
+                        lastUpdated: data['lastRefreshedAt'] as DateTime?,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _buildCashFlowDashboard(context, txProvider),
+                  _buildCashFlowDashboard(context),
                   const SizedBox(height: 24),
                   QuickActions(
-                    onIncomeTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'income'}),
-                    onExpenseTap: () => context.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'}),
-                    onBudgetTap: () => context.push(AppRoutes.budget),
-                    onAnalyticsTap: () => context.push(AppRoutes.statistics),
+                    onIncomeTap: () {
+                      HapticFeedback.lightImpact();
+                      context.push(AppRoutes.addTransaction, extra: {'initialType': 'income'});
+                    },
+                    onExpenseTap: () {
+                      HapticFeedback.lightImpact();
+                      context.push(AppRoutes.addTransaction, extra: {'initialType': 'expense'});
+                    },
+                    onBudgetTap: () {
+                      HapticFeedback.lightImpact();
+                      context.push(AppRoutes.budget);
+                    },
+                    onAnalyticsTap: () {
+                      HapticFeedback.lightImpact();
+                      context.push(AppRoutes.statistics);
+                    },
                   ),
                   const SizedBox(height: 40),
-                  _buildAnalyticsSnapshot(context, txProvider),
+                  _buildAnalyticsSnapshot(context),
                   const SizedBox(height: 32),
-                  if (budgetProvider.hasBudget) ...[
-                    _buildPremiumBudget(context, budgetProvider, txProvider.monthlyExpense),
-                    const SizedBox(height: 32),
-                  ],
-                  if (txProvider.monthlyTransactions.isNotEmpty) ...[
-                    _buildSpendingInsight(context, txProvider),
-                    const SizedBox(height: 12), 
-                  ],
+                  _buildPremiumBudget(context),
+                  const SizedBox(height: 32),
+                  _buildSpendingInsight(context),
+                  const SizedBox(height: 12), 
                   if (allTransactions.isNotEmpty)
                     _buildSectionHeader(
                       context,
                       title: 'Recent Activity',
                       actionLabel: 'View All',
-                      onAction: () => context.push(AppRoutes.allTransactions),
+                      onAction: () {
+                        HapticFeedback.lightImpact();
+                        context.push(AppRoutes.allTransactions);
+                      },
                     ),
                   if (allTransactions.isNotEmpty) const SizedBox(height: 4),
                 ],
@@ -387,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               visualDensity: VisualDensity.compact,
             ),
-            child: FittedBox(child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+            child: const FittedBox(child: Text('Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
           ),
         ],
       ),
@@ -396,241 +420,255 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildPremiumHeader(BuildContext context) {
     final colors = context.colors;
-    final authProvider = context.watch<AppAuthProvider>();
-    final displayName = authProvider.user?.displayName;
-    final name = (displayName?.split(' ').first ?? 'MoneyMapper').toUpperCase();
-    final initial = name.isNotEmpty ? name[0] : 'M';
+    
+    return Selector<AppAuthProvider, String>(
+      selector: (_, auth) => auth.user?.displayName ?? auth.cachedDisplayName ?? 'MoneyMapper',
+      builder: (context, displayName, _) {
+        final name = displayName.split(' ').first.toUpperCase();
+        final initial = name.isNotEmpty ? name[0] : 'M';
 
-    return SliverAppBar(
-      pinned: true,
-      expandedHeight: 120,
-      backgroundColor: colors.background,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      automaticallyImplyLeading: false,
-      flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsetsDirectional.only(start: 16, bottom: 16),
-        centerTitle: false,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
-              child: Text(
-                _getGreeting(),
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Flexible(
-              child: Text(
-                name,
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        Consumer<NotificationProvider>(
-          builder: (context, notificationProvider, _) {
-            final hasUnread = notificationProvider.unreadCount > 0;
-            return Stack(
-              alignment: Alignment.center,
+        return SliverAppBar(
+          pinned: true,
+          expandedHeight: 120,
+          backgroundColor: colors.background,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          automaticallyImplyLeading: false,
+          flexibleSpace: FlexibleSpaceBar(
+            titlePadding: const EdgeInsetsDirectional.only(start: 16, bottom: 16),
+            centerTitle: false,
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  onPressed: () {
-                    HapticFeedback.selectionClick();
-                    context.push(AppRoutes.notifications);
-                  },
-                  icon: Icon(
-                    Icons.notifications_none_rounded,
-                    color: colors.textPrimary,
-                    size: 26,
+                Flexible(
+                  child: Text(
+                    _getGreeting(),
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (hasUnread)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Center(
-                        child: Text(
-                          notificationProvider.unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                const SizedBox(height: 2),
+                Flexible(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
               ],
-            );
-          },
-        )
-        ,
-        const SizedBox(width: 4),
-        GestureDetector(
-          onTap: () => context.push(AppRoutes.profile),
-          child: Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: colors.surfaceVariant, width: 1.5),
-            ),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              child: Text(
-                initial,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                ),
-              ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCashFlowDashboard(BuildContext context, TransactionProvider provider) {
-    final colors = context.colors;
-    final currency = context.watch<CurrencyProvider>();
-    final balance = provider.monthlyBalance;
-    final income = provider.monthlyIncome;
-    final expense = provider.monthlyExpense;
-    final isPositive = balance >= 0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.surfaceVariant.withValues(alpha: 0.8), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
+          actions: [
+            Consumer<NotificationProvider>(
+              builder: (context, notificationProvider, _) {
+                final unreadCount = notificationProvider.unreadCount;
+                return Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: (isPositive ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                        color: isPositive ? AppColors.success : AppColors.error,
-                        size: 20,
+                    IconButton(
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        context.push(AppRoutes.notifications);
+                      },
+                      icon: Icon(
+                        Icons.notifications_none_rounded,
+                        color: colors.textPrimary,
+                        size: 26,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'THIS MONTH',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: colors.textSecondary,
-                              letterSpacing: 0.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    if (unreadCount > 0)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
                           ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Center(
                             child: Text(
-                              '${isPositive ? '+' : ''}${currency.format(balance)}',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: colors.textPrimary,
+                              unreadCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
                   ],
+                );
+              },
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => context.push(AppRoutes.profile),
+              child: Container(
+                margin: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.surfaceVariant, width: 1.5),
+                ),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _buildMiniStat(context, 'Income', income, AppColors.success),
-                  const SizedBox(height: 8),
-                  _buildMiniStat(context, 'Expense', expense, AppColors.error),
-                ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCashFlowDashboard(BuildContext context) {
+    final colors = context.colors;
+    final currency = context.watch<CurrencyProvider>();
+    
+    return Selector<TransactionProvider, Map<String, double>>(
+      selector: (_, p) => {
+        'balance': p.monthlyBalance,
+        'income': p.monthlyIncome,
+        'expense': p.monthlyExpense,
+      },
+      shouldRebuild: (prev, next) => !mapEquals(prev, next),
+      builder: (context, data, _) {
+        final balance = data['balance']!;
+        final income = data['income']!;
+        final expense = data['expense']!;
+        final isPositive = balance >= 0;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colors.surfaceVariant.withValues(alpha: 0.8), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            alignment: Alignment.centerLeft,
-            child: Text(
-              isPositive ? 'Positive Money Flow' : 'Negative Money Flow',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: colors.textSecondary,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: (isPositive ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                            color: isPositive ? AppColors.success : AppColors.error,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'THIS MONTH',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: colors.textSecondary,
+                                  letterSpacing: 0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '${isPositive ? '+' : ''}${currency.format(balance)}',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: colors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _buildMiniStat(context, 'Income', income, AppColors.success),
+                      const SizedBox(height: 8),
+                      _buildMiniStat(context, 'Expense', expense, AppColors.error),
+                    ],
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  isPositive ? 'Positive Money Flow' : 'Negative Money Flow',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildMiniStat(BuildContext context, String label, double amount, Color color) {
     final colors = context.colors;
-    final currency = context.watch<CurrencyProvider>();
+    final currency = context.read<CurrencyProvider>();
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -653,184 +691,194 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildAnalyticsSnapshot(BuildContext context, TransactionProvider provider) {
+  Widget _buildAnalyticsSnapshot(BuildContext context) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currency = context.watch<CurrencyProvider>();
-    final spent = provider.monthlyExpense;
-    final categorySummary = provider.getMonthlyExpenseByCategory();
 
-    if (spent == 0) return const SizedBox.shrink();
+    return Selector<TransactionProvider, Map<String, dynamic>>(
+      selector: (_, p) => {
+        'spent': p.monthlyExpense,
+        'summary': p.getMonthlyExpenseByCategory(),
+      },
+      shouldRebuild: (prev, next) => !mapEquals(prev, next),
+      builder: (context, data, _) {
+        final spent = data['spent'] as double;
+        final categorySummary = data['summary'] as Map<String, double>;
 
-    final sorted = categorySummary.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+        if (spent == 0) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        final sorted = categorySummary.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                'Spending Overview',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -0.5),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            GestureDetector(
-              onTap: () => context.push(AppRoutes.statistics),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Spending Overview',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -0.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                child: Row(
-                  children: const [
-                    Text('This Month', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                    SizedBox(width: 2),
-                    Icon(Icons.chevron_right_rounded, size: 14, color: AppColors.primary),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: colors.surfaceVariant.withValues(alpha: 0.5), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      currency.format(spent),
-                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -1.0),
+                GestureDetector(
+                  onTap: () => context.push(AppRoutes.statistics),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                  Text(
-                    'spent this month',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colors.textSecondary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 120,
-                    height: 120,
-                    child: Stack(
-                      alignment: Alignment.center,
+                    child: const Row(
                       children: [
-                        RepaintBoundary(
-                          child: PieChart(
-                            PieChartData(
-                              sectionsSpace: 4,
-                              centerSpaceRadius: 42,
-                              startDegreeOffset: -90,
-                              sections: sorted.asMap().entries.map((e) {
-                                final index = e.key;
-                                final entry = e.value;
-                                return PieChartSectionData(
-                                  color: _getThemeCategoryColor(entry.key, index, isDark),
-                                  value: entry.value,
-                                  title: '',
-                                  radius: 14,
-                                  badgeWidget: null,
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: colors.background,
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
-                          ),
-                          child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 24),
-                        ),
+                        Text('This Month', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                        SizedBox(width: 2),
+                        Icon(Icons.chevron_right_rounded, size: 14, color: AppColors.primary),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: Column(
-                      children: sorted.take(3).toList().asMap().entries.map((e) {
-                        final index = e.key;
-                        final entry = e.value;
-                        final pct = (entry.value / spent * 100).round();
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 8, height: 8,
-                                decoration: BoxDecoration(color: _getThemeCategoryColor(entry.key, index, isDark), shape: BoxShape.circle),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      entry.key,
-                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.textPrimary),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      '$pct%',
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: colors.textSecondary),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                flex: 0,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    currency.format(entry.value),
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: colors.textPrimary),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(color: colors.surfaceVariant.withValues(alpha: 0.5), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          currency.format(spent),
+                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: colors.textPrimary, letterSpacing: -1.0),
+                        ),
+                      ),
+                      Text(
+                        'spent this month',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            RepaintBoundary(
+                              child: PieChart(
+                                PieChartData(
+                                  sectionsSpace: 4,
+                                  centerSpaceRadius: 42,
+                                  startDegreeOffset: -90,
+                                  sections: sorted.asMap().entries.map((e) {
+                                    final index = e.key;
+                                    final entry = e.value;
+                                    return PieChartSectionData(
+                                      color: _getThemeCategoryColor(entry.key, index, isDark),
+                                      value: entry.value,
+                                      title: '',
+                                      radius: 14,
+                                      badgeWidget: null,
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: colors.background,
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
+                              ),
+                              child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 24),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: Column(
+                          children: sorted.take(3).toList().asMap().entries.map((e) {
+                            final index = e.key;
+                            final entry = e.value;
+                            final pct = (entry.value / spent * 100).round();
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8, height: 8,
+                                    decoration: BoxDecoration(color: _getThemeCategoryColor(entry.key, index, isDark), shape: BoxShape.circle),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          entry.key,
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: colors.textPrimary),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          '$pct%',
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: colors.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    flex: 0,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        currency.format(entry.value),
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -894,252 +942,271 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildPremiumBudget(BuildContext context, BudgetProvider provider, double spent) {
-    if (!provider.hasBudget) return const SizedBox.shrink();
-
+  Widget _buildPremiumBudget(BuildContext context) {
     final colors = context.colors;
     final currency = context.watch<CurrencyProvider>();
-    final limit = provider.monthlyLimit ?? 0;
-    final percent = (spent / limit).clamp(0.0, 1.0);
-    final remaining = (limit - spent).clamp(0.0, double.infinity);
-    final isOver = spent > limit;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: colors.surfaceVariant, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  'Monthly Budget',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colors.textPrimary, letterSpacing: 0.2),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (isOver ? AppColors.error : AppColors.success).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  isOver ? 'OVER LIMIT' : 'ON TRACK',
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: isOver ? AppColors.error : AppColors.success),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        currency.format(spent),
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
-                      ),
-                    ),
-                    Text(
-                      'of ${currency.format(limit)} spent',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  '${(percent * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Stack(
-            children: [
-              Container(
-                height: 12,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: colors.surfaceVariant.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: percent,
-                child: Container(
-                  height: 12,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isOver 
-                        ? [AppColors.error, Colors.redAccent] 
-                        : [AppColors.primary, const Color(0xff1D4ED8)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: colors.background,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: colors.surfaceVariant, width: 1),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.success),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${DateTime.now().difference(DateTime(DateTime.now().year, DateTime.now().month + 1, 0)).inDays.abs()} days left',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.success),
-                      ),
-                      Text(
-                        '${currency.format(remaining)} available',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    return Selector2<BudgetProvider, TransactionProvider, Map<String, dynamic>>(
+      selector: (_, bp, tp) => {
+        'hasBudget': bp.hasBudget,
+        'limit': bp.monthlyLimit ?? 0.0,
+        'spent': tp.monthlyExpense,
+      },
+      shouldRebuild: (prev, next) => !mapEquals(prev, next),
+      builder: (context, data, _) {
+        if (!(data['hasBudget'] as bool)) return const SizedBox.shrink();
 
-  Widget _buildSpendingInsight(BuildContext context, TransactionProvider provider) {
-    final colors = context.colors;
-    final currency = context.watch<CurrencyProvider>();
-    final transactions = provider.monthlyTransactions;
-    if (transactions.isEmpty) return const SizedBox.shrink();
+        final limit = data['limit'] as double;
+        final spent = data['spent'] as double;
+        final percent = (spent / limit).clamp(0.0, 1.0);
+        final remaining = (limit - spent).clamp(0.0, double.infinity);
+        final isOver = spent > limit;
 
-    final expenses = provider.getMonthlyExpenseByCategory();
-    String? topCategory;
-    double maxVal = 0;
-    expenses.forEach((k, v) {
-      if (v > maxVal) {
-        maxVal = v;
-        topCategory = k;
-      }
-    });
-
-    if (topCategory == null) return const SizedBox.shrink();
-    final totalSpent = provider.monthlyExpense;
-    final pct = totalSpent > 0 ? (maxVal / totalSpent * 100).round() : 0;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.push(AppRoutes.statistics),
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(16),
+        return Container(
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-                const Color(0xFFC084FC).withValues(alpha: 0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.15)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))
-                  ],
-                ),
-                child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: colors.surfaceVariant, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Spending Insight',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: colors.textPrimary),
-                    ),
-                    Text(
-                      '$topCategory is where most money went.',
-                      style: TextStyle(fontSize: 11, color: colors.textSecondary, fontWeight: FontWeight.w600),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Monthly Budget',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: colors.textPrimary, letterSpacing: 0.2),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      currency.format(maxVal),
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF8B5CF6)),
-                    ),
                   ),
-                  Text(
-                    '$pct% of total',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: colors.textSecondary),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (isOver ? AppColors.error : AppColors.success).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      isOver ? 'OVER LIMIT' : 'ON TRACK',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: isOver ? AppColors.error : AppColors.success),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            currency.format(spent),
+                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                          ),
+                        ),
+                        Text(
+                          'of ${currency.format(limit)} spent',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '${(percent * 100).toStringAsFixed(0)}%',
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Stack(
+                children: [
+                  Container(
+                    height: 12,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceVariant.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: percent,
+                    child: Container(
+                      height: 12,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isOver 
+                            ? [AppColors.error, Colors.redAccent] 
+                            : [AppColors.primary, const Color(0xff1D4ED8)],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colors.background,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colors.surfaceVariant, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.success),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${DateTime.now().difference(DateTime(DateTime.now().year, DateTime.now().month + 1, 0)).inDays.abs()} days left',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.success),
+                          ),
+                          Text(
+                            '${currency.format(remaining)} available',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSpendingInsight(BuildContext context) {
+    final colors = context.colors;
+    final currency = context.watch<CurrencyProvider>();
+    
+    return Selector<TransactionProvider, List<TransactionModel>>(
+      selector: (_, p) => p.monthlyTransactions,
+      shouldRebuild: (prev, next) => listEquals(prev, next),
+      builder: (context, transactions, _) {
+        if (transactions.isEmpty) return const SizedBox.shrink();
+
+        final provider = context.read<TransactionProvider>();
+        final expenses = provider.getMonthlyExpenseByCategory();
+        String? topCategory;
+        double maxVal = 0;
+        expenses.forEach((k, v) {
+          if (v > maxVal) {
+            maxVal = v;
+            topCategory = k;
+          }
+        });
+
+        if (topCategory == null) return const SizedBox.shrink();
+        final totalSpent = provider.monthlyExpense;
+        final pct = totalSpent > 0 ? (maxVal / totalSpent * 100).round() : 0;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.push(AppRoutes.statistics),
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                    const Color(0xFFC084FC).withValues(alpha: 0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.15)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))
+                      ],
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Spending Insight',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: colors.textPrimary),
+                        ),
+                        Text(
+                          '$topCategory is where most money went.',
+                          style: TextStyle(fontSize: 11, color: colors.textSecondary, fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          currency.format(maxVal),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF8B5CF6)),
+                        ),
+                      ),
+                      Text(
+                        '$pct% of total',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1260,11 +1327,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SizedBox(height: 16),
           ...List.generate(4, (i) => Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: Row(
+            child: const Row(
               children: [
-                const RepaintBoundary(child: _ShimmerBox(width: 44, height: 44, radius: 14)),
-                const SizedBox(width: 14),
-                const Expanded(
+                RepaintBoundary(child: _ShimmerBox(width: 44, height: 44, radius: 14)),
+                SizedBox(width: 14),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1274,7 +1341,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ],
                   ),
                 ),
-                const _ShimmerBox(width: 60, height: 14, radius: 4),
+                _ShimmerBox(width: 60, height: 14, radius: 4),
               ],
             ),
           )),
@@ -1351,7 +1418,7 @@ String formatRelativeDate(DateTime date) {
       date.year == now.subtract(const Duration(days: 1)).year) {
     relative = 'Yesterday';
   } else {
-    relative = DateFormat('MMM dd').format(date);
+    relative = AppDateFormats.relativeDate.format(date);
   }
-  return '$relative, ${DateFormat('h:mm a').format(date)}';
+  return '$relative, ${AppDateFormats.timeOnly.format(date)}';
 }

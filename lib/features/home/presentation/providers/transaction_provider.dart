@@ -50,12 +50,19 @@ class TransactionProvider extends ChangeNotifier {
     _currentStatus = status;
     
     if (id != null && isStatusResolved) {
-      loadTransactions();
-      loadMonthlyTransactions();
+      // Parallelize initial load
+      Future.wait([
+        loadTransactions(),
+        loadMonthlyTransactions(),
+      ]);
     } else if (isStatusResolved && id == null) {
       // Genuinely logged out
       _transactions = [];
       _monthlyTransactions = [];
+      _totalIncome = 0;
+      _totalExpense = 0;
+      _monthlyIncome = 0;
+      _monthlyExpense = 0;
       notifyListeners();
     }
   }
@@ -65,19 +72,41 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<bool> checkServerReachability() => _service.checkServerReachability();
 
-  List<TransactionModel> get transactions => 
-      _transactions.where((t) => t.id == null || !_stagedDeletions.contains(t.id)).toList();
-  List<TransactionModel> get monthlyTransactions => 
-      _monthlyTransactions.where((t) => t.id == null || !_stagedDeletions.contains(t.id)).toList();
+  // Cached filtered lists
+  List<TransactionModel>? _memoizedTransactions;
+  List<TransactionModel>? _memoizedMonthlyTransactions;
+
+  List<TransactionModel> get transactions {
+    if (_memoizedTransactions != null) return _memoizedTransactions!;
+    _memoizedTransactions = _transactions
+        .where((t) => t.id == null || !_stagedDeletions.contains(t.id))
+        .toList();
+    return _memoizedTransactions!;
+  }
+
+  List<TransactionModel> get monthlyTransactions {
+    if (_memoizedMonthlyTransactions != null) return _memoizedMonthlyTransactions!;
+    _memoizedMonthlyTransactions = _monthlyTransactions
+        .where((t) => t.id == null || !_stagedDeletions.contains(t.id))
+        .toList();
+    return _memoizedMonthlyTransactions!;
+  }
 
   void stageDeletion(String id) {
     _stagedDeletions.add(id);
+    _invalidateMemoization();
     notifyListeners();
   }
 
   void unstageDeletion(String id) {
     _stagedDeletions.remove(id);
+    _invalidateMemoization();
     notifyListeners();
+  }
+
+  void _invalidateMemoization() {
+    _memoizedTransactions = null;
+    _memoizedMonthlyTransactions = null;
   }
 
   bool get isLoading => _isLoading;
@@ -94,9 +123,11 @@ class TransactionProvider extends ChangeNotifier {
   String get typeFilter => _typeFilter;
 
   List<TransactionModel> get filteredTransactions {
+    final query = _searchQuery.trim().toLowerCase();
+    final type = _typeFilter.toLowerCase();
+    
     return transactions.where((t) {
-      final matchesType = _typeFilter == 'all' || t.type.toLowerCase() == _typeFilter.toLowerCase();
-      final query = _searchQuery.trim().toLowerCase();
+      final matchesType = type == 'all' || t.type.toLowerCase() == type;
       final matchesSearch = query.isEmpty ||
           t.category.toLowerCase().contains(query) ||
           t.note.toLowerCase().contains(query);
@@ -105,25 +136,35 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   void setSearchQuery(String query) {
+    if (_searchQuery == query) return;
     _searchQuery = query;
     notifyListeners();
   }
 
   void setTypeFilter(String type) {
+    if (_typeFilter == type) return;
     _typeFilter = type;
     notifyListeners();
   }
 
   Future<void> loadTransactions() async {
+    final uid = _currentUserId;
+    if (uid == null) return;
+    
+    // If already loading and we have data, don't restart to avoid flicker/delays
+    if (_transactionsSubscription != null && _isLoading && _transactions.isNotEmpty) return;
+
     _transactionsSubscription?.cancel();
     
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    _transactionsSubscription = _service.getTransactions().listen(
+    _transactionsSubscription = _service.getTransactions(uid).listen(
       (newTransactions) {
+        if (kDebugMode) print('DEBUG-TX: Received ${newTransactions.length} transactions (Cache: ${newTransactions.isEmpty ? '?' : 'Yes'})');
         _transactions = newTransactions;
+        _invalidateMemoization();
         _calculateTotals();
         _isLoading = false;
         _error = null;
@@ -139,15 +180,21 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> loadMonthlyTransactions() async {
+    final uid = _currentUserId;
+    if (uid == null) return;
+
+    if (_monthlySubscription != null && _isMonthlyLoading && _monthlyTransactions.isNotEmpty) return;
+
     _monthlySubscription?.cancel();
     
     _isMonthlyLoading = true;
     _error = null;
     notifyListeners();
 
-    _monthlySubscription = _service.getMonthlyTransactions().listen(
+    _monthlySubscription = _service.getMonthlyTransactions(uid).listen(
       (newMonthlyTransactions) {
         _monthlyTransactions = newMonthlyTransactions;
+        _invalidateMemoization();
         _calculateMonthlyTotals();
         _isMonthlyLoading = false;
         _error = null;
@@ -182,6 +229,9 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> refreshTransactions() async {
+    final uid = _currentUserId;
+    if (uid == null) return;
+
     _isLoading = true;
     _isMonthlyLoading = true;
     _error = null;
@@ -189,8 +239,8 @@ class TransactionProvider extends ChangeNotifier {
 
     try {
       await Future.wait([
-        _service.getTransactions().first,
-        _service.getMonthlyTransactions().first,
+        _service.getTransactions(uid).first,
+        _service.getMonthlyTransactions(uid).first,
       ]);
       _lastRefreshedAt = DateTime.now();
     } catch (e) {

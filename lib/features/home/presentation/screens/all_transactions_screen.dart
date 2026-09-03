@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/color_constants.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../data/models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
-import '../../../category/presentation/providers/category_provider.dart';
 import '../../../../config/routes/app_routes.dart';
 import '../../../../core/providers/currency_provider.dart';
+import '../../../../core/utils/app_utils.dart';
 
 enum _SortBy { newest, oldest, highest, lowest }
 
@@ -42,11 +42,15 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
     final diff = today.difference(d).inDays;
     
     String day = '';
-    if (diff == 0) day = 'Today';
-    else if (diff == 1) day = 'Yesterday';
-    else day = DateFormat('EEEE').format(date);
+    if (diff == 0) {
+      day = 'Today';
+    } else if (diff == 1) {
+      day = 'Yesterday';
+    } else {
+      day = AppDateFormats.dayOfWeek.format(date);
+    }
     
-    return '$day, ${DateFormat('dd MMM').format(date)}';
+    return '$day, ${AppDateFormats.relativeDate.format(date)}';
   }
 
   List<TransactionModel> _applyFilters(List<TransactionModel> all) {
@@ -71,7 +75,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
   Map<String, List<TransactionModel>> _groupTransactions(List<TransactionModel> list) {
     final grouped = <String, List<TransactionModel>>{};
     for (var t in list) {
-      final dateKey = DateFormat('yyyy-MM-dd').format(t.date);
+      final dateKey = AppDateFormats.dateKey.format(t.date);
       if (!grouped.containsKey(dateKey)) grouped[dateKey] = [];
       grouped[dateKey]!.add(t);
     }
@@ -81,56 +85,60 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final provider = context.watch<TransactionProvider>();
     final currency = context.watch<CurrencyProvider>();
 
-    final filtered = _applyFilters(provider.transactions);
-    final grouped = _groupTransactions(filtered);
-    final sortedKeys = grouped.keys.toList();
-    
-    if (_sortBy == _SortBy.oldest) {
-      sortedKeys.sort((a, b) => a.compareTo(b));
-    } else {
-      sortedKeys.sort((a, b) => b.compareTo(a));
-    }
+    return Selector<TransactionProvider, List<TransactionModel>>(
+      selector: (_, p) => p.transactions,
+      shouldRebuild: (prev, next) => listEquals(prev, next),
+      builder: (context, allTransactions, _) {
+        final filtered = _applyFilters(allTransactions);
+        final grouped = _groupTransactions(filtered);
+        final sortedKeys = grouped.keys.toList();
+        
+        if (_sortBy == _SortBy.oldest) {
+          sortedKeys.sort((a, b) => a.compareTo(b));
+        } else {
+          sortedKeys.sort((a, b) => b.compareTo(a));
+        }
 
-    final totalIncome = filtered.where((t) => t.type == 'income').fold<double>(0, (s, t) => s + t.amount);
-    final totalExpense = filtered.where((t) => t.type == 'expense').fold<double>(0, (s, t) => s + t.amount);
+        final totalIncome = filtered.where((t) => t.type == 'income').fold<double>(0, (s, t) => s + t.amount);
+        final totalExpense = filtered.where((t) => t.type == 'expense').fold<double>(0, (s, t) => s + t.amount);
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: _buildAppBar(colors),
-      body: Stack(
-        children: [
-          Column(
+        final isLoading = context.select<TransactionProvider, bool>((p) => p.isLoading);
+
+        return Scaffold(
+          backgroundColor: colors.background,
+          appBar: _buildAppBar(colors),
+          body: Column(
             children: [
-              _buildFilterTabs(colors, provider),
+              _buildFilterTabs(colors, allTransactions.length),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child: _buildBody(colors, currency, provider, filtered, grouped, sortedKeys, totalIncome, totalExpense),
+                  child: _buildBody(colors, currency, isLoading, allTransactions.isEmpty, filtered, grouped, sortedKeys, totalIncome, totalExpense),
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildBody(
     AppColorsExtension colors,
     CurrencyProvider currency,
-    TransactionProvider provider,
+    bool isLoading,
+    bool isAllEmpty,
     List<TransactionModel> filtered,
     Map<String, List<TransactionModel>> grouped,
     List<String> sortedKeys,
     double totalIncome,
     double totalExpense,
   ) {
-    if (provider.isLoading && provider.transactions.isEmpty) {
-      return Center(
-        key: const ValueKey('loading'),
+    if (isLoading && isAllEmpty) {
+      return const Center(
+        key: ValueKey('loading'),
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
@@ -302,7 +310,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
     );
   }
 
-  Widget _buildFilterTabs(AppColorsExtension colors, TransactionProvider provider) {
+  Widget _buildFilterTabs(AppColorsExtension colors, int totalCount) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(4),
@@ -313,7 +321,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
       ),
       child: Row(
         children: [
-          _SegmentTab(label: 'All - ${provider.transactions.length}', icon: Icons.account_balance_wallet_rounded, selected: _typeFilter == 'all', colors: colors, onTap: () => setState(() => _typeFilter = 'all')),
+          _SegmentTab(label: 'All - $totalCount', icon: Icons.account_balance_wallet_rounded, selected: _typeFilter == 'all', colors: colors, onTap: () => setState(() => _typeFilter = 'all')),
           _SegmentTab(label: 'Income', icon: Icons.arrow_downward_rounded, selected: _typeFilter == 'income', colors: colors, activeColor: AppColors.success, onTap: () => setState(() => _typeFilter = 'income')),
           _SegmentTab(label: 'Expense', icon: Icons.arrow_upward_rounded, selected: _typeFilter == 'expense', colors: colors, activeColor: AppColors.error, onTap: () => setState(() => _typeFilter = 'expense')),
         ],
@@ -485,7 +493,7 @@ class _TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = transaction;
     final isIncome = t.type == 'income';
-    final time = DateFormat('h:mm a').format(t.date);
+    final time = AppDateFormats.timeOnly.format(t.date);
     final payment = _getPaymentDetails(t.paymentMode);
 
     return Padding(

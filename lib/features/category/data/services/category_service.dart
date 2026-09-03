@@ -36,14 +36,11 @@ class CategoryService {
     }
   }
 
-  Stream<List<CategoryModel>> getCustomCategories() {
-    final userId = _userId;
-    if (userId == null) return Stream.value([]);
-
+  Stream<List<CategoryModel>> getCustomCategories(String userId) {
     return _firestore
         .collection('categories')
         .where('userId', isEqualTo: userId)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((snapshot) => snapshot.docs.map((doc) {
       final data = doc.data();
       return CategoryModel(

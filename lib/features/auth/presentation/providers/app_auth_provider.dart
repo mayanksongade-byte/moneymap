@@ -20,8 +20,12 @@ class AppAuthProvider extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
   bool _onboardingComplete = false;
   bool _isSettingsLoaded = false;
+  String? _cachedUid;
+  String? _cachedDisplayName;
 
   User? get user => _user;
+  String? get userId => _user?.uid ?? _cachedUid;
+  String? get cachedDisplayName => _cachedDisplayName;
   bool get isLoading => _isLoading;
   bool get isGoogleLoading => _isGoogleLoading;
   String? get error => _error;
@@ -35,8 +39,18 @@ class AppAuthProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
-    // 1. Load onboarding status
+    // 1. Load onboarding status, cached UID and Name
     await _loadOnboardingStatus();
+    final prefs = await SharedPreferences.getInstance();
+    _cachedUid = prefs.getString('last_known_uid');
+    _cachedDisplayName = prefs.getString('last_known_name');
+    final lastStatus = prefs.getString('last_known_status');
+    
+    if (_cachedUid != null && lastStatus != null) {
+      if (kDebugMode) print('DEBUG-INIT: Found cached user session: $_cachedUid');
+      // OPTIMISTIC: Start with cached status to avoid "initial" state blocking redirection
+      _status = lastStatus == 'guest' ? AuthStatus.guest : AuthStatus.authenticated;
+    }
 
     // 2. Reduce initial delay
     await Future.delayed(const Duration(milliseconds: 100));
@@ -59,6 +73,7 @@ class AppAuthProvider extends ChangeNotifier {
           _status = AuthStatus.authenticated;
         }
 
+        _updateCache(user.uid, _status.name, displayName: user.displayName);
         _markOnboardingComplete();
         if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
         notifyListeners();
@@ -66,6 +81,7 @@ class AppAuthProvider extends ChangeNotifier {
         // Only allow "unauthenticated" from the stream AFTER initial startup is done
         _user = null;
         _status = AuthStatus.unauthenticated;
+        _clearCache();
         notifyListeners();
       }
     });
@@ -79,7 +95,7 @@ class AppAuthProvider extends ChangeNotifier {
     }
 
     if (currentUser != null) {
-      if (kDebugMode) print('DEBUG-INIT: Found user: ${currentUser.uid}');
+      if (kDebugMode) print('DEBUG-INIT: Found user in Firebase cache: ${currentUser.uid}');
       _user = currentUser;
       if (currentUser.isAnonymous) {
         _status = AuthStatus.guest;
@@ -88,6 +104,7 @@ class AppAuthProvider extends ChangeNotifier {
       } else {
         _status = AuthStatus.authenticated;
       }
+      _updateCache(currentUser.uid, _status.name, displayName: currentUser.displayName);
       _markOnboardingComplete();
       if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
     } else {
@@ -101,13 +118,40 @@ class AppAuthProvider extends ChangeNotifier {
     } catch (_) {
       if (kDebugMode) print('DEBUG-INIT: Initialization timeout reached');
     } finally {
-      if (_status == AuthStatus.initial) {
+      // 7. Robust Final State Resolution
+      // Double check currentUser one last time before giving up
+      if (_user == null && _auth.currentUser != null) {
+         _user = _auth.currentUser;
+         _status = _user!.isAnonymous ? AuthStatus.guest : AuthStatus.authenticated;
+      }
+
+      // If we still haven't found a user AND don't have a cached one, default to unauthenticated
+      if (_status == AuthStatus.initial && _cachedUid == null) {
         _user = null;
         _status = AuthStatus.unauthenticated;
       }
+      
       _isSettingsLoaded = true;
       notifyListeners();
     }
+  }
+
+  Future<void> _updateCache(String uid, String status, {String? displayName}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_known_uid', uid);
+    await prefs.setString('last_known_status', status);
+    if (displayName != null) await prefs.setString('last_known_name', displayName);
+    _cachedUid = uid;
+    _cachedDisplayName = displayName ?? _cachedDisplayName;
+  }
+
+  Future<void> _clearCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('last_known_uid');
+    await prefs.remove('last_known_status');
+    await prefs.remove('last_known_name');
+    _cachedUid = null;
+    _cachedDisplayName = null;
   }
 
   Future<void> _tryGoogleFallback(Completer<void> completer) async {
@@ -245,8 +289,11 @@ class AppAuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _googleSignIn.signOut();
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // 1. SIGN IN with timeout to prevent infinite spinner
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn().timeout(
+        const Duration(seconds: 45), 
+        onTimeout: () => throw TimeoutException('Sign in timed out'),
+      );
 
       if (googleUser == null) {
         _isGoogleLoading = false;
@@ -254,15 +301,21 @@ class AppAuthProvider extends ChangeNotifier {
         return false;
       }
 
+      // 2. GET AUTHENTICATION
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
+      // 3. FIREBASE SIGN IN
       final result = await _auth.signInWithCredential(credential);
       _user = result.user;
       _status = AuthStatus.authenticated;
+
+      if (_user != null) {
+        await _updateCache(_user!.uid, _status.name, displayName: _user?.displayName);
+      }
 
       _isGoogleLoading = false;
       notifyListeners();
@@ -270,7 +323,11 @@ class AppAuthProvider extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       _error = _getErrorMessage(e.code);
     } catch (e) {
-      _error = "Google Sign-In failed.";
+      if (e is TimeoutException) {
+        _error = "Connection timed out. Please try again.";
+      } else {
+        _error = "Google Sign-In failed.";
+      }
     }
 
     _isGoogleLoading = false;
@@ -286,6 +343,7 @@ class AppAuthProvider extends ChangeNotifier {
       await _auth.signOut();
       _status = AuthStatus.unauthenticated;
       _user = null;
+      await _clearCache();
     } finally {
       _isLoading = false;
       notifyListeners();

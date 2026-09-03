@@ -147,6 +147,7 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                         },
                         child: Image.asset(
                           'assets/images/Welcome_illustration/Welcome.png',
+                          cacheHeight: 600, // Optimized decoding
                           fit: BoxFit.contain,
                         ),
                       ),

@@ -251,6 +251,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                   child: Image.asset(
                                     'assets/images/Welcome_illustration/Welcome.png',
                                     height: 300,
+                                    cacheHeight: 600, // Optimized decoding
                                     fit: BoxFit.contain,
                                   ),
                                 ),

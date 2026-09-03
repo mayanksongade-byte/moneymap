@@ -50,16 +50,16 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AppAuthProvider()),
         ChangeNotifierProxyProvider<AppAuthProvider, TransactionProvider>(
           create: (_) => TransactionProvider(),
-          update: (_, auth, tx) => tx!..updateAuth(auth.user?.uid, auth.status),
+          update: (_, auth, tx) => tx!..updateAuth(auth.userId, auth.status),
         ),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProxyProvider<AppAuthProvider, BudgetProvider>(
           create: (_) => BudgetProvider(),
-          update: (_, auth, budget) => budget!..updateAuth(auth.user?.uid, auth.status),
+          update: (_, auth, budget) => budget!..updateAuth(auth.userId, auth.status),
         ),
         ChangeNotifierProxyProvider<AppAuthProvider, CategoryProvider>(
           create: (_) => CategoryProvider(),
-          update: (_, auth, category) => category!..updateAuth(auth.user?.uid, auth.status),
+          update: (_, auth, category) => category!..updateAuth(auth.userId, auth.status),
         ),
         ChangeNotifierProvider(create: (_) => CurrencyProvider()),
         ChangeNotifierProxyProvider4<TransactionProvider, BudgetProvider, CurrencyProvider, AppAuthProvider, NotificationProvider>(
@@ -68,7 +68,7 @@ class MyApp extends StatelessWidget {
             if (notificationProvider != null) {
               // 0. UPDATE USER NAME: For personalized notifications
               notificationProvider.updateUserName(
-                authProvider.user?.displayName?.split(' ').first
+                (authProvider.user?.displayName ?? authProvider.cachedDisplayName)?.split(' ').first
               );
 
               // 1. INSTANT BUDGET CHECK: When limit is crossed

@@ -45,13 +45,18 @@ class BudgetProvider extends ChangeNotifier {
   double? limitForCategory(String category) => _budget.categoryLimits[category];
 
   void loadBudget() {
+    final uid = _currentUserId;
+    if (uid == null) return;
+    
+    if (_subscription != null && _isLoading && _budget.monthlyLimit != null) return;
+
     _subscription?.cancel();
     
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    _subscription = _service.getBudget().listen(
+    _subscription = _service.getBudget(uid).listen(
           (budget) {
         _budget = budget;
         _isLoading = false;
@@ -67,12 +72,15 @@ class BudgetProvider extends ChangeNotifier {
   }
 
   Future<void> refreshBudget() async {
+    final uid = _currentUserId;
+    if (uid == null) return;
+    
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await _service.getBudget().first.timeout(const Duration(seconds: 8));
+      await _service.getBudget(uid).first.timeout(const Duration(seconds: 8));
     } catch (e) {
       if (kDebugMode) print('DEBUG-BUDGET: Refresh error: $e');
     } finally {

@@ -144,6 +144,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     final loading = tp.isLoading && tp.transactions.isEmpty;
 
+    // --- Optimized Calculation Logic ---
     final now = DateTime.now();
     
     // Period Ranges
@@ -171,7 +172,12 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     final Map<int, double> trendMap = {};
     int currentTxCount = 0;
 
-    for (final t in tp.transactions) {
+    // Cache transactions for local iteration speed
+    final txs = tp.transactions;
+    final txsCount = txs.length;
+
+    for (int i = 0; i < txsCount; i++) {
+      final t = txs[i];
       final d = t.date;
       final isInc = t.type.toLowerCase() == 'income';
 
@@ -221,6 +227,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     final savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100) : 0.0;
     
     final expDelta = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense * 100) : 0.0;
+    // --- End Optimized Calculation Logic ---
 
     return Scaffold(
       backgroundColor: colors.background,

@@ -36,11 +36,8 @@ class BudgetService {
   }
 
   /// Streams the user's full budget doc (overall limit + per-category limits).
-  Stream<BudgetModel> getBudget() {
-    final userId = _userId;
-    if (userId == null) return Stream.value(const BudgetModel());
-
-    return _firestore.collection('budgets').doc(userId).snapshots().map((doc) {
+  Stream<BudgetModel> getBudget(String userId) {
+    return _firestore.collection('budgets').doc(userId).snapshots(includeMetadataChanges: true).map((doc) {
       if (!doc.exists) return const BudgetModel();
       return BudgetModel.fromMap(doc.data());
     });

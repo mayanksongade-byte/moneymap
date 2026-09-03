@@ -81,13 +81,8 @@ class TransactionService {
     return newTransaction.copyWith(id: docRef.id);
   }
 
-  // Get all transactions for current user
-  Stream<List<TransactionModel>> getTransactions() {
-    final userId = _userId;
-    if (userId == null) {
-      return Stream.value([]);
-    }
-
+  // Get all transactions for a user
+  Stream<List<TransactionModel>> getTransactions(String userId) {
     return _transactionsRef
         .where('userId', isEqualTo: userId)
         .orderBy('date', descending: true)
@@ -100,12 +95,7 @@ class TransactionService {
   }
 
   // Get transactions for current month
-  Stream<List<TransactionModel>> getMonthlyTransactions() {
-    final userId = _userId;
-    if (userId == null) {
-      return Stream.value([]);
-    }
-
+  Stream<List<TransactionModel>> getMonthlyTransactions(String userId) {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final startOfNextMonth = DateTime(now.year, now.month + 1, 1);

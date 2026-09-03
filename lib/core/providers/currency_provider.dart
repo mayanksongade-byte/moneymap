@@ -28,6 +28,7 @@ class CurrencyProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _selectedCurrency = prefs.getString('currency') ?? 'INR';
     _currencySymbol = _currencyMap[_selectedCurrency] ?? '₹';
+    _clearCache();
     notifyListeners();
   }
 
@@ -36,18 +37,33 @@ class CurrencyProvider extends ChangeNotifier {
     _currencySymbol = _currencyMap[currencyCode] ?? '₹';
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('currency', currencyCode);
+    _clearCache();
     notifyListeners();
   }
 
-  NumberFormat get formatter => NumberFormat.currency(
-    symbol: '$_currencySymbol ',
-    decimalDigits: 0,
-  );
+  NumberFormat? _cachedFormatter;
+  NumberFormat? _cachedFormatterWithDecimals;
 
-  NumberFormat get formatterWithDecimals => NumberFormat.currency(
-    symbol: '$_currencySymbol ',
-    decimalDigits: 2,
-  );
+  NumberFormat get formatter {
+    _cachedFormatter ??= NumberFormat.currency(
+      symbol: '$_currencySymbol ',
+      decimalDigits: 0,
+    );
+    return _cachedFormatter!;
+  }
+
+  NumberFormat get formatterWithDecimals {
+    _cachedFormatterWithDecimals ??= NumberFormat.currency(
+      symbol: '$_currencySymbol ',
+      decimalDigits: 2,
+    );
+    return _cachedFormatterWithDecimals!;
+  }
+
+  void _clearCache() {
+    _cachedFormatter = null;
+    _cachedFormatterWithDecimals = null;
+  }
 
   String format(num amount, {bool showDecimals = false}) {
     return showDecimals ? formatterWithDecimals.format(amount) : formatter.format(amount);

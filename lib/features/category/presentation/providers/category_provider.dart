@@ -42,10 +42,20 @@ class CategoryProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  final Map<String, List<CategoryModel>> _memoizedByType = {};
+
   List<CategoryModel> byType(String type) {
+    if (_memoizedByType.containsKey(type)) return _memoizedByType[type]!;
+    
     final defaults = CategoryModel.getByType(type);
     final custom = _customCategories.where((c) => c.type == type).toList();
-    return [...defaults, ...custom];
+    final result = [...defaults, ...custom];
+    _memoizedByType[type] = result;
+    return result;
+  }
+
+  void _invalidateCache() {
+    _memoizedByType.clear();
   }
 
   CategoryModel? findByName(String name, {required String type}) {
@@ -63,14 +73,20 @@ class CategoryProvider extends ChangeNotifier {
   }
 
   void loadCategories() {
+    final uid = _currentUserId;
+    if (uid == null) return;
+    
+    if (_subscription != null && _isLoading && _customCategories.isNotEmpty) return;
+
     _subscription?.cancel();
     
     _isLoading = true;
     notifyListeners();
 
-    _subscription = _service.getCustomCategories().listen(
+    _subscription = _service.getCustomCategories(uid).listen(
           (list) {
         _customCategories = list;
+        _invalidateCache();
         _isLoading = false;
         _error = null;
         notifyListeners();

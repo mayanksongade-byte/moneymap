@@ -226,6 +226,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                       'assets/images/Lable_Logo/Lable.png',
                                       width: 200,
                                       height: 200,
+                                      cacheWidth: 400, // Optimized decoding
                                       fit: BoxFit.contain,
                                       errorBuilder: (context, error, stackTrace) =>
                                           const Icon(Icons.wallet, size: 60, color: brandBlue),

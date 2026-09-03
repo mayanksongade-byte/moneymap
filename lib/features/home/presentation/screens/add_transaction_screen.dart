@@ -93,7 +93,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     final authProvider = context.read<AppAuthProvider>();
-    final uid = authProvider.user?.uid;
+    final uid = authProvider.userId;
     if (uid == null) return;
 
     setState(() => _isUploading = true);
@@ -179,9 +179,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = context.watch<CategoryProvider>().byType(_selectedType);
     final colors = context.colors;
-    final currencySymbol = context.watch<CurrencyProvider>().currencySymbol;
+    final currencySymbol = context.select<CurrencyProvider, String>((p) => p.currencySymbol);
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -214,7 +213,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const SizedBox(height: 30),
                   _buildCategoryHeader(colors),
                   const SizedBox(height: 16),
-                  _buildCategoryGrid(categories, colors),
+                  Selector<CategoryProvider, List<CategoryModel>>(
+                    selector: (_, p) => p.byType(_selectedType),
+                    builder: (context, categories, _) => _buildCategoryGrid(categories, colors),
+                  ),
                   const SizedBox(height: 120),
                 ],
               ),
