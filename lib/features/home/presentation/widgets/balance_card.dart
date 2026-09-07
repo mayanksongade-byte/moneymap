@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/constants/color_constants.dart';
 import '../../../../core/providers/currency_provider.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 
@@ -100,7 +99,7 @@ class _BalanceCardState extends State<BalanceCard>
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -119,7 +118,7 @@ class _BalanceCardState extends State<BalanceCard>
                 height: 130,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withValues(alpha: 0.08),
                 ),
               ),
             ),
@@ -142,7 +141,7 @@ class _BalanceCardState extends State<BalanceCard>
                               child: Text(
                                 'Total Balance',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -156,7 +155,7 @@ class _BalanceCardState extends State<BalanceCard>
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white, size: 18),
@@ -198,7 +197,7 @@ class _BalanceCardState extends State<BalanceCard>
                         onTap: _toggle,
                         child: Icon(
                           _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                           size: 22,
                         ),
                       ),
@@ -211,7 +210,7 @@ class _BalanceCardState extends State<BalanceCard>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -234,7 +233,7 @@ class _BalanceCardState extends State<BalanceCard>
                           child: Text(
                             '${isPositiveChange ? '+' : ''}${currency.format(monthlyChange)} this month',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -263,7 +262,7 @@ class _BalanceCardState extends State<BalanceCard>
                         height: 32,
                         width: 1,
                         margin: const EdgeInsets.symmetric(horizontal: 8),
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                       ),
                       Expanded(
                         child: _buildStatItem(
@@ -281,14 +280,14 @@ class _BalanceCardState extends State<BalanceCard>
                   // Footer
                   Row(
                     children: [
-                      Icon(Icons.access_time_rounded, size: 12, color: Colors.white.withOpacity(0.4)),
+                      Icon(Icons.access_time_rounded, size: 12, color: Colors.white.withValues(alpha: 0.4)),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Updated $_updatedText',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white.withOpacity(0.4),
+                            color: Colors.white.withValues(alpha: 0.4),
                             fontWeight: FontWeight.w400,
                           ),
                           maxLines: 1,
@@ -317,7 +316,7 @@ class _BalanceCardState extends State<BalanceCard>
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.15),
+                color: iconColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 12, color: iconColor),
@@ -327,7 +326,7 @@ class _BalanceCardState extends State<BalanceCard>
               child: Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,

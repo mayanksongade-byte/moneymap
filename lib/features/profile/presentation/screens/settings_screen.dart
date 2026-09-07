@@ -260,7 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             HapticFeedback.selectionClick();
             provider.setNotificationsEnabled(v);
           },
-          activeColor: AppColors.primary,
+          activeThumbColor: AppColors.primary,
         ),
       ),
     );
@@ -309,7 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             HapticFeedback.selectionClick();
             onChanged(v);
           },
-          activeColor: AppColors.primary,
+          activeThumbColor: AppColors.primary,
         ),
       ),
     );
@@ -404,7 +404,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 HapticFeedback.selectionClick();
                 onToggle(v);
               },
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
             ),
           ),
           if (isEnabled) ...[

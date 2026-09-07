@@ -1,7 +1,5 @@
-import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -43,17 +41,21 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
 
     _checkInitialConnectivity();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
-      setState(() {
-        _isOffline = results.contains(ConnectivityResult.none);
-      });
+      if (mounted) {
+        setState(() {
+          _isOffline = results.contains(ConnectivityResult.none);
+        });
+      }
     });
   }
 
   Future<void> _checkInitialConnectivity() async {
     final results = await Connectivity().checkConnectivity();
-    setState(() {
-      _isOffline = results.contains(ConnectivityResult.none);
-    });
+    if (mounted) {
+      setState(() {
+        _isOffline = results.contains(ConnectivityResult.none);
+      });
+    }
   }
 
   @override
@@ -125,181 +127,184 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Column(
                         children: [
-                          const SizedBox(height: 20), // Reduced height to keep text at the very top
+                          const SizedBox(height: 20),
 
-                    // Welcome Title & Subtitle - Now at the very top
-                    _SlideUpAnimation(
-                      delay: 200,
-                      child: Column(
-                        children: [
-                          Text(
-                            'Welcome to MoneyMap',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              height: 1.1,
+                          // Welcome Title & Subtitle
+                          _SlideUpAnimation(
+                            delay: 200,
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Welcome to MoneyMap',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: colors.textPrimary,
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Take control of your finances with smart expense tracking, powerful insights, and secure money management.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: colors.textSecondary,
+                                    fontSize: 16,
+                                    height: 1.5,
+                                  ),
+                                  maxLines: 2,
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Take control of your finances with smart expense tracking, powerful insights, and secure money management.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 16,
-                              height: 1.5,
-                            ),
-                            maxLines: 2,
-                          ),
-                        ],
-                      ),
-                    ),
 
-                    const SizedBox(height: 40),
+                          const SizedBox(height: 40),
 
-                    // Hero Illustration
-                    SizedBox(
-                      height: size.height * 0.35,
-                      child: AnimatedBuilder(
-                        animation: _floatingController,
-                        builder: (context, child) {
-                          return Transform.translate(
-                            offset: Offset(0, 15 * Curves.easeInOutSine.transform(_floatingController.value) - 7.5),
-                            child: child,
-                          );
-                        },
-                        child: Image.asset(
-                          'assets/images/Welcome_illustration/Welcome.png',
-                          cacheHeight: 600, // Optimized decoding
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // Google Button
-                    _SlideUpAnimation(
-                      delay: 400,
-                      child: _PremiumButton(
-                        onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
-                        isLoading: _isGoogleLoading,
-                        backgroundColor: isDark ? Colors.white : colors.surface,
-                        foregroundColor: isDark ? Colors.black : colors.textPrimary,
-                        icon: SvgPicture.asset(
-                          "assets/icons/google.svg",
-                          width: 24,
-                          height: 24,
-                        ),
-                        text: AppStrings.continueWithGoogle,
-                        hasShadow: true,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Divider
-                    _SlideUpAnimation(
-                      delay: 500,
-                      child: Row(
-                        children: [
-                          Expanded(child: Divider(color: colors.divider)),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'OR',
-                              style: TextStyle(
-                                color: colors.textSecondary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.5,
+                          // Hero Illustration
+                          SizedBox(
+                            height: size.height * 0.35,
+                            child: AnimatedBuilder(
+                              animation: _floatingController,
+                              builder: (context, child) {
+                                return Transform.translate(
+                                  offset: Offset(0, 15 * Curves.easeInOutSine.transform(_floatingController.value) - 7.5),
+                                  child: child,
+                                );
+                              },
+                              child: Image.asset(
+                                'assets/images/Welcome_illustration/Welcome.png',
+                                cacheHeight: 600,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),
-                          Expanded(child: Divider(color: colors.divider)),
+
+                          const SizedBox(height: 40),
+
+                          // Google Button
+                          _SlideUpAnimation(
+                            delay: 400,
+                            child: _PremiumButton(
+                              onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
+                              isLoading: _isGoogleLoading,
+                              backgroundColor: isDark ? Colors.white : colors.surface,
+                              foregroundColor: isDark ? Colors.black : colors.textPrimary,
+                              icon: SvgPicture.asset(
+                                "assets/icons/google.svg",
+                                width: 24,
+                                height: 24,
+                              ),
+                              text: AppStrings.continueWithGoogle,
+                              hasShadow: true,
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Divider
+                          _SlideUpAnimation(
+                            delay: 500,
+                            child: Row(
+                              children: [
+                                Expanded(child: Divider(color: colors.divider)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text(
+                                    'OR',
+                                    style: TextStyle(
+                                      color: colors.textSecondary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(child: Divider(color: colors.divider)),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Login Button
+                          _SlideUpAnimation(
+                            delay: 600,
+                            child: _PremiumButton(
+                              onPressed: () => context.push(AppRoutes.login),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
+                              ),
+                              text: AppStrings.login,
+                              trailingIcon: Icons.arrow_forward_rounded,
+                              glowColor: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Create Account Button
+                          _SlideUpAnimation(
+                            delay: 700,
+                            child: _PremiumButton(
+                              onPressed: () => context.push(AppRoutes.register),
+                              isOutline: true,
+                              borderColor: const Color(0xFF2563EB),
+                              foregroundColor: isDark ? Colors.white : const Color(0xFF2563EB),
+                              text: AppStrings.createAccount,
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Guest Option
+                          _SlideUpAnimation(
+                            delay: 800,
+                            child: TextButton(
+                              onPressed: authProvider.isLoading ? null : _handleGuestSignIn,
+                              style: TextButton.styleFrom(
+                                foregroundColor: colors.textSecondary,
+                              ),
+                              child: _isGuestLoading 
+                                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: colors.textSecondary))
+                                : const Text(
+                                    '${AppStrings.continueAsGuest} →',
+                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                                  ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // Footer
+                          _SlideUpAnimation(
+                            delay: 900,
+                            child: Padding(
+                              padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 24),
+                              child: Wrap(
+                                alignment: WrapAlignment.center,
+                                spacing: 4,
+                                children: [
+                                  Text(
+                                    'By continuing, you agree to our',
+                                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                                  ),
+                                  _ClickableFooterText(text: 'Terms of Service', onTap: () {}, color: colors.textPrimary),
+                                  Text(
+                                    'and',
+                                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                                  ),
+                                  _ClickableFooterText(text: 'Privacy Policy', onTap: () {}, color: colors.textPrimary),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // Login Button
-                    _SlideUpAnimation(
-                      delay: 600,
-                      child: _PremiumButton(
-                        onPressed: () => context.push(AppRoutes.login),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
-                        ),
-                        text: AppStrings.login,
-                        trailingIcon: Icons.arrow_forward_rounded,
-                        glowColor: const Color(0xFF2563EB).withValues(alpha: 0.3),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Create Account Button
-                    _SlideUpAnimation(
-                      delay: 700,
-                      child: _PremiumButton(
-                        onPressed: () => context.push(AppRoutes.register),
-                        isOutline: true,
-                        borderColor: const Color(0xFF2563EB),
-                        foregroundColor: isDark ? Colors.white : const Color(0xFF2563EB),
-                        text: AppStrings.createAccount,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Guest Option
-                    _SlideUpAnimation(
-                      delay: 800,
-                      child: TextButton(
-                        onPressed: authProvider.isLoading ? null : _handleGuestSignIn,
-                        style: TextButton.styleFrom(
-                          foregroundColor: colors.textSecondary,
-                        ),
-                        child: _isGuestLoading 
-                          ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: colors.textSecondary))
-                          : Text(
-                              '${AppStrings.continueAsGuest} →',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                            ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Footer
-                    _SlideUpAnimation(
-                      delay: 900,
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 24),
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 4,
-                          children: [
-                            Text(
-                              'By continuing, you agree to our',
-                              style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                            ),
-                            _ClickableFooterText(text: 'Terms of Service', onTap: () {}, color: colors.textPrimary),
-                            Text(
-                              'and',
-                              style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                            ),
-                            _ClickableFooterText(text: 'Privacy Policy', onTap: () {}, color: colors.textPrimary),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -311,9 +316,11 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
     setState(() => _isGoogleLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.signInWithGoogle();
-    if (mounted) setState(() => _isGoogleLoading = false);
+    
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
 
-    if (success && context.mounted) {
+    if (success) {
       if (authProvider.status == AuthStatus.unverified) {
         context.go(AppRoutes.verifyEmail);
       } else {
@@ -326,9 +333,11 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
     setState(() => _isGuestLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.continueAsGuest();
-    if (mounted) setState(() => _isGuestLoading = false);
+    
+    if (!mounted) return;
+    setState(() => _isGuestLoading = false);
 
-    if (success && context.mounted) {
+    if (success) {
       context.go(AppRoutes.home);
     }
   }

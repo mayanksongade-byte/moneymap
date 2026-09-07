@@ -1333,9 +1333,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SizedBox(height: 32),
           const RepaintBoundary(child: _ShimmerBox(width: 140, height: 18, radius: 6)),
           const SizedBox(height: 16),
-          ...List.generate(4, (i) => Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: const Row(
+          ...List.generate(4, (i) => const Padding(
+            padding: EdgeInsets.only(bottom: 14),
+            child: Row(
               children: [
                 RepaintBoundary(child: _ShimmerBox(width: 44, height: 44, radius: 14)),
                 SizedBox(width: 14),

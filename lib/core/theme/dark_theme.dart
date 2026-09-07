@@ -14,12 +14,10 @@ class DarkTheme {
         primary: AppColors.primaryLight,
         secondary: AppColors.accentLight,
         surface: AppColors.darkSurface,
-        background: AppColors.darkBackground,
         error: AppColors.error,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.darkTextPrimary,
-        onBackground: AppColors.darkTextPrimary,
         onError: Colors.white,
       ),
 
@@ -188,7 +186,7 @@ class DarkTheme {
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(AppColors.primary),
         radius: const Radius.circular(4),
-        thickness: MaterialStateProperty.all(4),
+        thickness: WidgetStateProperty.all(4),
       ),
     );
   }

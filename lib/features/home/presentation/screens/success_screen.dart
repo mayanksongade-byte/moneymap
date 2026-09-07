@@ -166,7 +166,7 @@ class SuccessScreen extends StatelessWidget {
                           ),
                           Text(
                             "You've taken a step towards better financial tracking.",
-                            style: TextStyle(color: const Color(0xFF166534).withOpacity(0.8), fontSize: 11),
+                            style: TextStyle(color: const Color(0xFF166534).withValues(alpha: 0.8), fontSize: 11),
                           ),
                         ],
                       ),
@@ -225,7 +225,7 @@ class SuccessScreen extends StatelessWidget {
           width: 110,
           height: 110,
           decoration: BoxDecoration(
-            color: const Color(0xFFDCFCE7).withOpacity(0.6),
+            color: const Color(0xFFDCFCE7).withValues(alpha: 0.6),
             shape: BoxShape.circle,
           ),
         ),
@@ -262,7 +262,7 @@ class SuccessScreen extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 16),
@@ -285,7 +285,7 @@ class SuccessScreen extends StatelessWidget {
   Widget _buildDivider(AppColorsExtension colors) {
     return Padding(
       padding: const EdgeInsets.only(left: 48, top: 8, bottom: 8),
-      child: Divider(color: colors.border.withOpacity(0.3), height: 1),
+      child: Divider(color: colors.border.withValues(alpha: 0.3), height: 1),
     );
   }
 }

@@ -700,7 +700,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: colors.background, borderRadius: BorderRadius.circular(12)),
-                child: Icon(Icons.analytics_rounded, color: AppColors.primary, size: 20),
+                child: const Icon(Icons.analytics_rounded, color: AppColors.primary, size: 20),
               ),
             ],
           ),
@@ -1316,11 +1316,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: colors.border),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.primary),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(
                     "Add your first transaction",
                     style: TextStyle(
@@ -1480,7 +1480,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
+                        const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

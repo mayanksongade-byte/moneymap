@@ -27,7 +27,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isBusy = false;
   String _appVersion = '1.0.0';
   final int _currentIndex = 3;
-  bool _exportExpanded = false;
 
   User? get _user => FirebaseAuth.instance.currentUser;
 

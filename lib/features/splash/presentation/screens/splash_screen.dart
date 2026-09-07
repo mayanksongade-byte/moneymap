@@ -1,7 +1,5 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../config/routes/app_routes.dart';
@@ -184,7 +182,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     height: 250,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: brandBlue.withOpacity(isDark ? 0.08 : 0.05),
+                      color: brandBlue.withValues(alpha: isDark ? 0.08 : 0.05),
                     ),
                   ),
                 ),
@@ -207,17 +205,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: isDark 
-                                        ? Colors.white.withOpacity(0.05) 
+                                        ? Colors.white.withValues(alpha: 0.05) 
                                         : Colors.white,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: brandBlue.withOpacity(isDark ? 0.2 : 0.1),
+                                        color: brandBlue.withValues(alpha: isDark ? 0.2 : 0.1),
                                         blurRadius: 40,
                                         offset: const Offset(0, 20),
                                       ),
                                     ],
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(isDark ? 0.1 : 0.8),
+                                      color: Colors.white.withValues(alpha: isDark ? 0.1 : 0.8),
                                       width: 1.5,
                                     ),
                                   ),
@@ -253,7 +251,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                               fontSize: 13,
                               fontWeight: FontWeight.w400,
                               letterSpacing: 1.5,
-                              color: themeColors.textPrimary.withOpacity(0.5),
+                              color: themeColors.textPrimary.withValues(alpha: 0.5),
                             ),
                           ),
                         ],
@@ -273,7 +271,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.lock_outline_rounded, size: 14, 
-                                 color: themeColors.textPrimary.withOpacity(0.3)),
+                                 color: themeColors.textPrimary.withValues(alpha: 0.3)),
                             const SizedBox(width: 6),
                             Text(
                               'SECURE & ENCRYPTED',
@@ -281,7 +279,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 1.2,
-                                color: themeColors.textPrimary.withOpacity(0.3),
+                                color: themeColors.textPrimary.withValues(alpha: 0.3),
                               ),
                             ),
                           ],
@@ -293,7 +291,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: LinearProgressIndicator(
-                              backgroundColor: brandBlue.withOpacity(0.1),
+                              backgroundColor: brandBlue.withValues(alpha: 0.1),
                               valueColor: const AlwaysStoppedAnimation<Color>(brandBlue),
                             ),
                           ),

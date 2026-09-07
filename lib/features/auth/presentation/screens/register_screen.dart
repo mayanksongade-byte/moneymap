@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../../core/theme/app_colors_extension.dart';
-import '../../../../core/constants/string_constants.dart';
 import '../../../../core/constants/color_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
@@ -29,7 +28,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isGoogleLoading = false;
   
   PasswordStrength _strength = PasswordStrength.weak;
 
@@ -53,17 +51,21 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
     _checkInitialConnectivity();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
-      setState(() {
-        _isOffline = results.contains(ConnectivityResult.none);
-      });
+      if (mounted) {
+        setState(() {
+          _isOffline = results.contains(ConnectivityResult.none);
+        });
+      }
     });
   }
 
   Future<void> _checkInitialConnectivity() async {
     final results = await Connectivity().checkConnectivity();
-    setState(() {
-      _isOffline = results.contains(ConnectivityResult.none);
-    });
+    if (mounted) {
+      setState(() {
+        _isOffline = results.contains(ConnectivityResult.none);
+      });
+    }
   }
 
   @override
@@ -80,9 +82,11 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
 
   void _updateStrength() {
     final password = _passwordController.text;
-    setState(() {
-      _strength = _calculateStrength(password);
-    });
+    if (mounted) {
+      setState(() {
+        _strength = _calculateStrength(password);
+      });
+    }
   }
 
   PasswordStrength _calculateStrength(String password) {
@@ -130,12 +134,10 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
   }
 
   Future<void> _handleGoogleSignIn() async {
-    setState(() => _isGoogleLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.signInWithGoogle();
     
     if (!mounted) return;
-    setState(() => _isGoogleLoading = false);
 
     if (success) {
       if (authProvider.status == AuthStatus.unverified) {
@@ -167,7 +169,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       backgroundColor: colors.background,
       body: Stack(
         children: [
-          // 1. Premium Background with theme colors
+          // 1. Premium Background
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -176,6 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                 colors: isDark 
                   ? [const Color(0xFF08111F), const Color(0xFF0D1B2A), const Color(0xFF101827)]
                   : [colors.background, colors.surface, colors.background],
+              ),
             ),
           ),
 
@@ -220,7 +223,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: colors.border),
                           ),
-                          child: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: colors.textPrimary),
+                          child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                         ),
                       ),
                     ],
@@ -325,7 +328,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                               keyboardType: TextInputType.emailAddress,
                               validator: (value) {
                                 if (value == null || value.isEmpty) return 'Please enter your email';
-                                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                                if (!RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                                   return 'Please enter a valid email';
                                 }
                                 return null;
@@ -428,7 +431,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
                             delay: 600,
                             child: _PremiumButton(
                               onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
-                              isLoading: _isGoogleLoading,
+                              isLoading: authProvider.isGoogleLoading,
                               backgroundColor: isDark ? Colors.white : colors.surface,
                               foregroundColor: isDark ? Colors.black : colors.textPrimary,
                               icon: SvgPicture.asset(
@@ -504,6 +507,7 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       ),
     );
   }
+
   Widget _buildOfflineBanner() {
     return Container(
       width: double.infinity,
@@ -636,7 +640,9 @@ class _GlassTextFieldState extends State<_GlassTextField> {
   void initState() {
     super.initState();
     _focusNode.addListener(() {
-      setState(() => _isFocused = _focusNode.hasFocus);
+      if (mounted) {
+        setState(() => _isFocused = _focusNode.hasFocus);
+      }
     });
   }
 

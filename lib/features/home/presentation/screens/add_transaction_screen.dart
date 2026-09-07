@@ -13,7 +13,6 @@ import 'package:moneymap/core/providers/notification_provider.dart';
 import 'package:moneymap/core/providers/currency_provider.dart';
 import 'package:moneymap/core/theme/app_colors_extension.dart';
 import 'package:moneymap/config/routes/app_routes.dart';
-import 'package:moneymap/config/routes/app_router.dart';
 import 'package:moneymap/features/auth/presentation/providers/app_auth_provider.dart';
 
 class AddTransactionScreen extends StatefulWidget {

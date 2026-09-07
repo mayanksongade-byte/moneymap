@@ -14,12 +14,10 @@ class LightTheme {
         primary: AppColors.primary,
         secondary: AppColors.accent,
         surface: AppColors.surface,
-        background: AppColors.background,
         error: AppColors.error,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimary,
-        onBackground: AppColors.textPrimary,
         onError: Colors.white,
       ),
 
@@ -187,7 +185,7 @@ class LightTheme {
       scrollbarTheme: ScrollbarThemeData(
         thumbColor: WidgetStateProperty.all(AppColors.primary),
         radius: const Radius.circular(4),
-        thickness: MaterialStateProperty.all(4),
+        thickness: WidgetStateProperty.all(4),
       ),
     );
   }

@@ -354,7 +354,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                          child: FittedBox(child: const Text('Remove', style: TextStyle(fontWeight: FontWeight.w600))),
+                          child: const FittedBox(child: Text('Remove', style: TextStyle(fontWeight: FontWeight.w600))),
                         ),
                       ),
                     if (currentLimit != null) const SizedBox(width: 12),

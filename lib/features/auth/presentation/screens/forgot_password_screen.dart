@@ -75,7 +75,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> with Ticker
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     final authProvider = Provider.of<AppAuthProvider>(context);
     final colors = Theme.of(context).extension<AppColorsExtension>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;

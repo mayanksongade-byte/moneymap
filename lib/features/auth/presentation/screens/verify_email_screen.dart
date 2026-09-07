@@ -150,7 +150,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with TickerProvid
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2563EB).withOpacity(isDark ? 0.08 : 0.04),
+                      color: const Color(0xFF2563EB).withValues(alpha: isDark ? 0.08 : 0.04),
                       blurRadius: 100,
                       spreadRadius: 20,
                     ),
@@ -242,7 +242,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with TickerProvid
                             border: Border.all(color: colors.border),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 15,
                                 offset: const Offset(0, 8),
                               ),
@@ -255,7 +255,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with TickerProvid
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF2563EB).withOpacity(0.1),
+                                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(Icons.email_outlined, color: Color(0xFF2563EB), size: 24),
@@ -283,7 +283,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with TickerProvid
                                             Text(
                                               "Verification email sent",
                                               style: TextStyle(
-                                                color: const Color(0xFF10B981).withOpacity(0.8),
+                                                color: const Color(0xFF10B981).withValues(alpha: 0.8),
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -328,7 +328,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> with TickerProvid
                               onPressed: authProvider.isLoading ? null : () => _checkVerification(authProvider),
                               gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF3B82F6)]),
                               trailingIcon: Icons.arrow_forward_rounded,
-                              glowColor: const Color(0xFF2563EB).withOpacity(0.3),
+                              glowColor: const Color(0xFF2563EB).withValues(alpha: 0.3),
                             ),
                             const SizedBox(height: 16),
                             _PremiumButton(

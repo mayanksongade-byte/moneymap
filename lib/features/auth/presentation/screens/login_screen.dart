@@ -25,7 +25,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   late AnimationController _floatController;
   
   bool _obscurePassword = true;
-  bool _isGoogleLoading = false;
 
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _isOffline = false;
@@ -107,12 +106,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   }
 
   Future<void> _handleGoogleSignIn() async {
-    setState(() => _isGoogleLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.signInWithGoogle();
     
     if (!mounted) return;
-    setState(() => _isGoogleLoading = false);
 
     if (success) {
       if (authProvider.status == AuthStatus.unverified) {
