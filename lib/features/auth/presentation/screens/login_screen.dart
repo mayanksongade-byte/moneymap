@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../../core/theme/app_colors_extension.dart';
+import '../../../../core/constants/color_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
 
@@ -24,6 +27,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   bool _obscurePassword = true;
   bool _isGoogleLoading = false;
 
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  bool _isOffline = false;
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +42,20 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat(reverse: true);
+
+    _checkInitialConnectivity();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      setState(() {
+        _isOffline = results.contains(ConnectivityResult.none);
+      });
+    });
+  }
+
+  Future<void> _checkInitialConnectivity() async {
+    final results = await Connectivity().checkConnectivity();
+    setState(() {
+      _isOffline = results.contains(ConnectivityResult.none);
+    });
   }
 
   @override
@@ -44,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _passwordController.dispose();
     _fadeController.dispose();
     _floatController.dispose();
+    _connectivitySubscription.cancel();
     super.dispose();
   }
 
@@ -76,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authProvider.error ?? 'Login failed. Please check your credentials.'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
@@ -104,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error ?? 'Google sign-in failed.'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -167,6 +188,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             SafeArea(
               child: Column(
                 children: [
+                  if (_isOffline)
+                    _buildOfflineBanner(),
                   // Custom App Bar
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -441,6 +464,28 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      color: AppColors.error,
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+          SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              "No internet connection. Please connect to log in.",
+              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -119,7 +119,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (!isOnline) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please check your internet connection and try again.')),
+          const SnackBar(
+            content: Text('Please check your internet connection and try again.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
       return false; // Blocks the Dismissible
@@ -151,7 +155,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Restore if failed (Offline/Error)
           provider.unstageDeletion(t.id!);
           messenger.showSnackBar(
-            SnackBar(content: Text(provider.error ?? 'Please check your internet connection and try again.')),
+            SnackBar(
+              content: Text(provider.error ?? 'Please check your internet connection and try again.'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
           );
         }
       }
@@ -422,7 +430,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final colors = context.colors;
     
     return Selector<AppAuthProvider, String>(
-      selector: (_, auth) => auth.user?.displayName ?? auth.cachedDisplayName ?? 'MoneyMapper',
+      selector: (_, auth) => auth.effectiveDisplayName,
       builder: (context, displayName, _) {
         final name = displayName.split(' ').first.toUpperCase();
         final initial = name.isNotEmpty ? name[0] : 'M';

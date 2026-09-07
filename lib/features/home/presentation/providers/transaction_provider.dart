@@ -49,6 +49,8 @@ class TransactionProvider extends ChangeNotifier {
     _currentUserId = id;
     _currentStatus = status;
     
+    _service.updateAuth(id);
+    
     if (id != null && isStatusResolved) {
       // Parallelize initial load
       Future.wait([

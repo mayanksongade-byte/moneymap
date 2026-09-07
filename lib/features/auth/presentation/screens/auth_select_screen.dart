@@ -5,8 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../../core/theme/app_colors_extension.dart';
 import '../../../../core/constants/string_constants.dart';
+import '../../../../core/constants/color_constants.dart';
 import '../providers/app_auth_provider.dart';
 import '../../../../config/routes/app_routes.dart';
 
@@ -22,6 +24,9 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
   late AnimationController _fadeController;
   bool _isGoogleLoading = false;
   bool _isGuestLoading = false;
+  
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+  bool _isOffline = false;
 
   @override
   void initState() {
@@ -35,12 +40,27 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..forward();
+
+    _checkInitialConnectivity();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      setState(() {
+        _isOffline = results.contains(ConnectivityResult.none);
+      });
+    });
+  }
+
+  Future<void> _checkInitialConnectivity() async {
+    final results = await Connectivity().checkConnectivity();
+    setState(() {
+      _isOffline = results.contains(ConnectivityResult.none);
+    });
   }
 
   @override
   void dispose() {
     _floatingController.dispose();
     _fadeController.dispose();
+    _connectivitySubscription.cancel();
     super.dispose();
   }
 
@@ -94,13 +114,18 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
 
           // 3. Main Content
           SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20), // Reduced height to keep text at the very top
+            child: Column(
+              children: [
+                if (_isOffline)
+                  _buildOfflineBanner(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 20), // Reduced height to keep text at the very top
 
                     // Welcome Title & Subtitle - Now at the very top
                     _SlideUpAnimation(
@@ -306,6 +331,28 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
     if (success && context.mounted) {
       context.go(AppRoutes.home);
     }
+  }
+
+  Widget _buildOfflineBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      color: AppColors.error,
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+          SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              "No internet connection. Please connect to log in.",
+              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

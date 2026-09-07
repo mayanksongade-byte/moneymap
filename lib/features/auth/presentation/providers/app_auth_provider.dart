@@ -22,10 +22,17 @@ class AppAuthProvider extends ChangeNotifier {
   bool _isSettingsLoaded = false;
   String? _cachedUid;
   String? _cachedDisplayName;
+  String? _cachedEmail;
 
   User? get user => _user;
   String? get userId => _user?.uid ?? _cachedUid;
   String? get cachedDisplayName => _cachedDisplayName;
+  
+  // Effective getters for offline support
+  String? get effectiveUid => _user?.uid ?? _cachedUid;
+  String get effectiveDisplayName => _user?.displayName ?? _cachedDisplayName ?? 'MoneyMapper';
+  String get effectiveEmail => _user?.email ?? _cachedEmail ?? '';
+
   bool get isLoading => _isLoading;
   bool get isGoogleLoading => _isGoogleLoading;
   String? get error => _error;
@@ -44,6 +51,7 @@ class AppAuthProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _cachedUid = prefs.getString('last_known_uid');
     _cachedDisplayName = prefs.getString('last_known_name');
+    _cachedEmail = prefs.getString('last_known_email');
     final lastStatus = prefs.getString('last_known_status');
     
     if (_cachedUid != null && lastStatus != null) {
@@ -73,7 +81,7 @@ class AppAuthProvider extends ChangeNotifier {
           _status = AuthStatus.authenticated;
         }
 
-        _updateCache(user.uid, _status.name, displayName: user.displayName);
+        _updateCache(user.uid, _status.name, displayName: user.displayName, email: user.email);
         _markOnboardingComplete();
         if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
         notifyListeners();
@@ -104,7 +112,7 @@ class AppAuthProvider extends ChangeNotifier {
       } else {
         _status = AuthStatus.authenticated;
       }
-      _updateCache(currentUser.uid, _status.name, displayName: currentUser.displayName);
+      _updateCache(currentUser.uid, _status.name, displayName: currentUser.displayName, email: currentUser.email);
       _markOnboardingComplete();
       if (!authSettledCompleter.isCompleted) authSettledCompleter.complete();
     } else {
@@ -136,13 +144,15 @@ class AppAuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _updateCache(String uid, String status, {String? displayName}) async {
+  Future<void> _updateCache(String uid, String status, {String? displayName, String? email}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_known_uid', uid);
     await prefs.setString('last_known_status', status);
     if (displayName != null) await prefs.setString('last_known_name', displayName);
+    if (email != null) await prefs.setString('last_known_email', email);
     _cachedUid = uid;
     _cachedDisplayName = displayName ?? _cachedDisplayName;
+    _cachedEmail = email ?? _cachedEmail;
   }
 
   Future<void> _clearCache() async {
@@ -150,8 +160,10 @@ class AppAuthProvider extends ChangeNotifier {
     await prefs.remove('last_known_uid');
     await prefs.remove('last_known_status');
     await prefs.remove('last_known_name');
+    await prefs.remove('last_known_email');
     _cachedUid = null;
     _cachedDisplayName = null;
+    _cachedEmail = null;
   }
 
   Future<void> _tryGoogleFallback(Completer<void> completer) async {
@@ -239,6 +251,10 @@ class AppAuthProvider extends ChangeNotifier {
         _status = AuthStatus.authenticated;
       }
 
+      if (_user != null) {
+        await _updateCache(_user!.uid, _status.name, displayName: _user?.displayName, email: _user?.email);
+      }
+
       _isLoading = false;
       notifyListeners();
       return true;
@@ -272,6 +288,10 @@ class AppAuthProvider extends ChangeNotifier {
       _user = _auth.currentUser;
       _status = AuthStatus.unverified;
       
+      if (_user != null) {
+        await _updateCache(_user!.uid, _status.name, displayName: name, email: _user?.email);
+      }
+
       _isLoading = false;
       notifyListeners();
       return true;
@@ -314,7 +334,7 @@ class AppAuthProvider extends ChangeNotifier {
       _status = AuthStatus.authenticated;
 
       if (_user != null) {
-        await _updateCache(_user!.uid, _status.name, displayName: _user?.displayName);
+        await _updateCache(_user!.uid, _status.name, displayName: _user?.displayName, email: _user?.email);
       }
 
       _isGoogleLoading = false;

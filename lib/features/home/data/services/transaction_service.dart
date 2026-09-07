@@ -8,8 +8,14 @@ class TransactionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  String? _manualUserId;
+
+  void updateAuth(String? userId) {
+    _manualUserId = userId;
+  }
+
   // Get current user ID
-  String? get _userId => _auth.currentUser?.uid;
+  String? get _userId => _auth.currentUser?.uid ?? _manualUserId;
 
   // Get transactions collection reference
   CollectionReference get _transactionsRef =>
@@ -45,12 +51,12 @@ class TransactionService {
   /// Verifies if the Firebase backend is reachable via a server-source read.
   Future<bool> checkServerReachability() async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) return false;
+      final userId = _userId;
+      if (userId == null) return false;
 
       // Fast server-only metadata check
       await _transactionsRef
-          .where('userId', isEqualTo: user.uid)
+          .where('userId', isEqualTo: userId)
           .limit(1)
           .get(const GetOptions(source: Source.server))
           .timeout(const Duration(seconds: 2));
@@ -74,9 +80,16 @@ class TransactionService {
 
     final docRef = _transactionsRef.doc();
     
-    await _runOnlineWrite((tx) async {
-      tx.set(docRef, newTransaction.toMap());
-    });
+    final isOnline = await checkServerReachability();
+    
+    if (isOnline) {
+      await _runOnlineWrite((tx) async {
+        tx.set(docRef, newTransaction.toMap());
+      });
+    } else {
+      // Offline fallback: Direct set() supports persistence
+      await docRef.set(newTransaction.toMap());
+    }
 
     return newTransaction.copyWith(id: docRef.id);
   }
@@ -117,9 +130,16 @@ class TransactionService {
   Future<void> deleteTransaction(String id) async {
     if (_userId == null) throw 'User not logged in';
     
-    await _runOnlineWrite((tx) async {
-      tx.delete(_firestore.collection('transactions').doc(id));
-    });
+    final docRef = _firestore.collection('transactions').doc(id);
+    final isOnline = await checkServerReachability();
+
+    if (isOnline) {
+      await _runOnlineWrite((tx) async {
+        tx.delete(docRef);
+      });
+    } else {
+      await docRef.delete();
+    }
   }
 
   // Update transaction
@@ -131,9 +151,16 @@ class TransactionService {
       updatedAt: DateTime.now(),
     );
 
-    await _runOnlineWrite((tx) async {
-      tx.update(_firestore.collection('transactions').doc(transaction.id), updated.toMap());
-    });
+    final docRef = _firestore.collection('transactions').doc(transaction.id);
+    final isOnline = await checkServerReachability();
+
+    if (isOnline) {
+      await _runOnlineWrite((tx) async {
+        tx.update(docRef, updated.toMap());
+      });
+    } else {
+      await docRef.update(updated.toMap());
+    }
   }
 
   // Get total income

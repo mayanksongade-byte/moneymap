@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
@@ -8,7 +7,7 @@ plugins {
 android {
     namespace = "com.example.moneymap"
 
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -18,10 +17,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
+    kotlinOptions {
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -29,7 +26,7 @@ android {
 
         // Desugaring માટે minSdk 21 અથવા વધુ હોવું જરૂરી છે
         minSdk = flutter.minSdkVersion 
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 37
 
         versionCode = flutter.versionCode
         versionName = flutter.versionName

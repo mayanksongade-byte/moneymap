@@ -462,7 +462,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               children: [
                 _HeaderCard(
-                  user: user,
+                  name: authProvider.isGuest ? 'Guest User' : authProvider.effectiveDisplayName,
+                  email: authProvider.isGuest ? 'guest@moneymap.com' : authProvider.effectiveEmail,
                   isGuest: authProvider.isGuest,
                   onEdit: _editProfile,
                   totalTransactions: txProvider.transactions.length,
@@ -549,7 +550,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _HeaderCard extends StatelessWidget {
-  final User? user;
+  final String name;
+  final String email;
   final bool isGuest;
   final VoidCallback onEdit;
   final int totalTransactions;
@@ -558,7 +560,8 @@ class _HeaderCard extends StatelessWidget {
   final String membershipDuration;
 
   const _HeaderCard({
-    required this.user,
+    required this.name,
+    required this.email,
     required this.isGuest,
     required this.onEdit,
     required this.totalTransactions,
@@ -569,11 +572,10 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AppAuthProvider>();
     final currency = context.watch<CurrencyProvider>();
-    final name = isGuest ? 'Guest User' : (user?.displayName ?? 'User');
-    final email = isGuest ? 'guest@moneymap.com' : (user?.email ?? '');
     
-    final displayName = (user?.displayName?.split(' ').first ?? (isGuest ? 'Guest' : 'User')).toUpperCase();
+    final displayName = (name.split(' ').first).toUpperCase();
     final initial = displayName.isNotEmpty ? displayName[0] : 'U';
 
     return Container(
