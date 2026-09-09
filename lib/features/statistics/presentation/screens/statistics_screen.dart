@@ -18,24 +18,6 @@ import '../../../../config/routes/app_routes.dart';
 import '../../../../core/utils/export_helper.dart';
 
 
-enum StatsPeriod { d7, m1, y1, all }
-
-extension StatsPeriodX on StatsPeriod {
-  String get label => switch (this) {
-    StatsPeriod.d7 => '7 Days',
-    StatsPeriod.m1 => 'This Month',
-    StatsPeriod.y1 => 'This Year',
-    StatsPeriod.all => 'All Time',
-  };
-
-  String get short => switch (this) {
-    StatsPeriod.d7 => '7D',
-    StatsPeriod.m1 => '1M',
-    StatsPeriod.y1 => '1Y',
-    StatsPeriod.all => 'All',
-  };
-}
-
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
 
@@ -45,7 +27,8 @@ class StatisticsScreen extends StatefulWidget {
 
 class _StatisticsScreenState extends State<StatisticsScreen>
     with TickerProviderStateMixin {
-  StatsPeriod _period = StatsPeriod.m1;
+  late DateTime _selectedMonth;
+  DateTimeRange? _customRange;
   bool _showIncome = false;
   int _touchedIndex = -1;
   int _touchedModeIndex = -1;
@@ -53,9 +36,16 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
   late AnimationController _animCtrl;
 
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month, 1);
     _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 950),
@@ -87,11 +77,55 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     _animCtrl.forward(from: 0);
   }
 
-  void _changePeriod(StatsPeriod p) {
-    if (_period == p) return;
+  bool get _isCurrentMonth {
+    final now = DateTime.now();
+    return _selectedMonth.year == now.year && _selectedMonth.month == now.month;
+  }
+
+  void _changeMonth(int delta) {
+    final target = DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+    final now = DateTime.now();
+    if (target.isAfter(DateTime(now.year, now.month))) return;
     HapticFeedback.selectionClick();
-    setState(() => _period = p);
+    setState(() {
+      _selectedMonth = target;
+      _customRange = null;
+    });
     _animCtrl.forward(from: 0);
+  }
+
+  Future<void> _selectDateRange() async {
+    HapticFeedback.lightImpact();
+    final now = DateTime.now();
+    final initialRange = _customRange ?? DateTimeRange(
+      start: _selectedMonth,
+      end: _isCurrentMonth ? now : DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0),
+    );
+
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: initialRange,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            surface: context.colors.surface,
+            onSurface: context.colors.textPrimary,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _customRange = picked;
+      });
+      _animCtrl.forward(from: 0);
+    }
   }
 
   void _toggleType(bool showIncome) {
@@ -145,26 +179,34 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     final loading = tp.isLoading && tp.transactions.isEmpty;
 
     // --- Optimized Calculation Logic ---
-    final now = DateTime.now();
-    
-    // Period Ranges
-    final currentStart = switch (_period) {
-      StatsPeriod.d7 => now.subtract(const Duration(days: 7)),
-      StatsPeriod.m1 => DateTime(now.year, now.month, 1),
-      StatsPeriod.y1 => DateTime(now.year, 1, 1),
-      StatsPeriod.all => DateTime(1970),
-    };
-    
-    final prevStart = switch (_period) {
-      StatsPeriod.d7 => now.subtract(const Duration(days: 14)),
-      StatsPeriod.m1 => DateTime(now.year, now.month - 1, 1),
-      StatsPeriod.y1 => DateTime(now.year - 1, 1, 1),
-      StatsPeriod.all => DateTime(1970),
-    };
-    final prevEnd = currentStart;
+    final DateTime currentStart;
+    final DateTime currentEnd;
+    final DateTime prevStart;
+    final DateTime prevEnd;
+    final String periodLabel;
+
+    if (_customRange != null) {
+      currentStart = DateTime(_customRange!.start.year, _customRange!.start.month, _customRange!.start.day);
+      currentEnd = DateTime(_customRange!.end.year, _customRange!.end.month, _customRange!.end.day).add(const Duration(days: 1));
+      
+      final duration = currentEnd.difference(currentStart);
+      prevStart = currentStart.subtract(duration);
+      prevEnd = currentStart;
+      
+      periodLabel = "${DateFormat('MMM d').format(currentStart)} – ${DateFormat('MMM d').format(currentEnd.subtract(const Duration(seconds: 1)))}";
+    } else {
+      currentStart = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+      currentEnd = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
+      
+      prevStart = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
+      prevEnd = currentStart;
+      
+      periodLabel = "${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}";
+    }
 
     double totalIncome = 0;
     double totalExpense = 0;
+    double prevIncome = 0;
     double prevExpense = 0;
     final Map<String, ({String id, String name, double amount})> catData = {};
     final Map<String, double> modeMap = {};
@@ -181,15 +223,17 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       final d = t.date;
       final isInc = t.type.toLowerCase() == 'income';
 
-      // Previous Period (Expense only for delta)
-      if (_period != StatsPeriod.all && !isInc) {
-        if (!d.isBefore(prevStart) && d.isBefore(prevEnd)) {
+      // Previous Period
+      if (!d.isBefore(prevStart) && d.isBefore(prevEnd)) {
+        if (isInc) {
+          prevIncome += t.amount;
+        } else {
           prevExpense += t.amount;
         }
       }
 
       // Current Period
-      if (d.isBefore(currentStart)) continue;
+      if (d.isBefore(currentStart) || !d.isBefore(currentEnd)) continue;
       
       currentTxCount++;
       if (isInc) {
@@ -211,11 +255,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         );
       }
 
-      final bucket = switch (_period) {
-        StatsPeriod.d7 => d.weekday,
-        StatsPeriod.m1 => d.day,
-        _ => d.month,
-      };
+      final bucket = d.difference(currentStart).inDays;
       if (!isInc) {
         trendMap[bucket] = (trendMap[bucket] ?? 0) + t.amount;
       }
@@ -226,6 +266,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     final netBalance = totalIncome - totalExpense;
     final savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100) : 0.0;
     
+    final incDelta = prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome * 100) : 0.0;
     final expDelta = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense * 100) : 0.0;
     // --- End Optimized Calculation Logic ---
 
@@ -248,9 +289,9 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
                     return Column(
                       children: [
-                        _staggered(0, _buildPeriodSelector(colors)),
+                        _staggered(0, _buildDateSelector(colors)),
                         const SizedBox(height: 24),
-                        _staggered(1, _buildHeroCard(colors, currency, netBalance, totalIncome, totalExpense, _period.label, expDelta)),
+                        _staggered(1, _buildHeroCard(colors, currency, netBalance, totalIncome, totalExpense, periodLabel, expDelta, _customRange != null)),
                         const SizedBox(height: 16),
                         
                         if (currentTxCount == 0) ...[
@@ -259,15 +300,15 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         ] else ...[
                           _staggered(2, Row(
                             children: [
-                              Expanded(child: _buildMiniCard(colors, currency, "Income", totalIncome, const Color(0xFF10B981), Icons.arrow_downward_rounded, "+4.2%")),
+                              Expanded(child: _buildMiniCard(colors, currency, "Income", totalIncome, const Color(0xFF10B981), incDelta >= 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded, "${incDelta >= 0 ? '+' : ''}${incDelta.toStringAsFixed(1)}%")),
                               const SizedBox(width: 12),
-                              Expanded(child: _buildMiniCard(colors, currency, "Expense", totalExpense, const Color(0xFFF43F5E), Icons.arrow_upward_rounded, "+12%")),
+                              Expanded(child: _buildMiniCard(colors, currency, "Expense", totalExpense, const Color(0xFFF43F5E), expDelta >= 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded, "${expDelta >= 0 ? '+' : ''}${expDelta.toStringAsFixed(1)}%")),
                             ],
                           )),
                           const SizedBox(height: 16),
-                          _staggered(3, _buildInsightsStrip(colors, currency, savingsRate, sortedCats, currentTxCount, totalExpense)),
+                          _staggered(3, _buildInsightsStrip(colors, currency, savingsRate, sortedCats, currentTxCount, totalExpense, currentStart, currentEnd)),
                           const SizedBox(height: 28),
-                          _staggered(4, _buildTrendChart(colors, currency, trendMap)),
+                          _staggered(4, _buildTrendChart(colors, currency, trendMap, currentStart, currentEnd)),
                           const SizedBox(height: 32),
                           if (!_showIncome) ...[
                             _staggered(5, _buildPaymentMethods(colors, currency, sortedModes, modeCount, totalExpense)),
@@ -279,7 +320,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                             _staggered(7, _buildFullBreakdown(colors, currency, sortedCats, _showIncome ? totalIncome : totalExpense, cp)),
                           ],
                         ],
-                        const SizedBox(height: 120),
+                        const SizedBox(height: 20),
                       ],
                     );
                   },
@@ -364,72 +405,107 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  Widget _buildPeriodSelector(AppColorsExtension colors) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.border.withValues(alpha: 0.3)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemWidth = (constraints.maxWidth - 8) / 4;
-          return Stack(
-            children: [
-              AnimatedAlign(
-                alignment: Alignment(
-                  -1.0 + (_period.index * 2 / 3),
-                  0,
-                ),
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
+  Widget _buildDateSelector(AppColorsExtension colors) {
+    String mainLabel;
+    String subLabel;
+
+    if (_customRange != null) {
+      mainLabel = "${DateFormat('MMM d').format(_customRange!.start)} – ${DateFormat('MMM d').format(_customRange!.end)}";
+      subLabel = "Custom Date Range";
+    } else {
+      mainLabel = "${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}";
+      final first = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+      final last = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
+      subLabel = "${DateFormat('MMM d').format(first)} – ${DateFormat('MMM d').format(last)}";
+    }
+
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity == null) return;
+        if (details.primaryVelocity! > 250) {
+          _changeMonth(-1);
+        } else if (details.primaryVelocity! < -250) {
+          _changeMonth(1);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colors.border.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => _changeMonth(-1),
                 child: Container(
-                  width: itemWidth,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  child: Icon(Icons.chevron_left_rounded, size: 28, color: colors.textPrimary),
                 ),
               ),
-              Row(
-                children: StatsPeriod.values.map((p) {
-                  final selected = _period == p;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => _changePeriod(p),
-                      behavior: HitTestBehavior.opaque,
-                      child: Center(
-                        child: Text(
-                          p.short,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                            color: selected ? Colors.black : colors.textSecondary,
-                          ),
+            ),
+            Expanded(
+              child: InkWell(
+                onTap: _selectDateRange,
+                borderRadius: BorderRadius.circular(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        mainLabel,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: colors.textPrimary,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                    const SizedBox(height: 2),
+                    Text(
+                      subLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          );
-        },
+            ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: _isCurrentMonth ? null : () => _changeMonth(1),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 28,
+                    color: _isCurrentMonth ? colors.textDisabled : colors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeroCard(AppColorsExtension colors, CurrencyProvider currency, double balance, double income, double expense, String period, double expDelta) {
+  Widget _buildHeroCard(AppColorsExtension colors, CurrencyProvider currency, double balance, double income, double expense, String period, double expDelta, bool isCustom) {
     final ratio = income > 0 ? (expense / income).clamp(0.0, 1.0) : (expense > 0 ? 1.0 : 0.0);
     final isIncrease = expDelta >= 0;
     
@@ -526,21 +602,20 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (_period != StatsPeriod.all)
-                  Row(
-                    children: [
-                      Icon(
-                        isIncrease ? Icons.trending_up_rounded : Icons.trending_down_rounded, 
-                        color: isIncrease ? Colors.redAccent : Colors.greenAccent, 
-                        size: 16
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${expDelta.abs().toStringAsFixed(0)}% spending vs last ${_period == StatsPeriod.d7 ? '7D' : 'month'}", 
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500)
-                      ),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      isIncrease ? Icons.trending_up_rounded : Icons.trending_down_rounded, 
+                      color: isIncrease ? Colors.redAccent : Colors.greenAccent, 
+                      size: 16
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      "${expDelta.abs().toStringAsFixed(0)}% spending vs previous ${isCustom ? 'period' : 'month'}", 
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500)
+                    ),
+                  ],
+                ),
                 const Spacer(),
                 Column(
                   children: [
@@ -627,17 +702,27 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  Widget _buildInsightsStrip(AppColorsExtension colors, CurrencyProvider currency, double savingsRate, List<({String id, String name, double amount})> sortedCats, int txCount, double totalExp) {
+  Widget _buildInsightsStrip(AppColorsExtension colors, CurrencyProvider currency, double savingsRate, List<({String id, String name, double amount})> sortedCats, int txCount, double totalExp, DateTime start, DateTime end) {
     final topCat = sortedCats.isNotEmpty ? sortedCats.first.name : "None";
-    final avg = totalExp / (_period == StatsPeriod.d7 ? 7 : (_period == StatsPeriod.m1 ? 30 : 365));
+    final days = end.difference(start).inDays;
+    final avg = totalExp / (days > 0 ? days : 1);
+
+    Color savingsColor;
+    if (savingsRate > 20) {
+      savingsColor = const Color(0xFF10B981);
+    } else if (savingsRate >= 0) {
+      savingsColor = Colors.orange;
+    } else {
+      savingsColor = const Color(0xFFF43F5E);
+    }
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.none,
       child: Row(
         children: [
-          _buildInsightChip(colors, Icons.savings_rounded, "Savings", "${savingsRate.toStringAsFixed(0)}%", savingsRate > 20 ? const Color(0xFF10B981) : Colors.orange),
-          _buildInsightChip(colors, Icons.local_fire_department_rounded, "Top Cat", topCat, Colors.red),
+          _buildInsightChip(colors, Icons.savings_rounded, "Savings", "${savingsRate.toStringAsFixed(0)}%", savingsColor),
+          _buildInsightChip(colors, Icons.local_fire_department_rounded, "Top Cat", topCat, const Color(0xFFF43F5E)),
           _buildInsightChip(colors, Icons.analytics_rounded, "Avg/Day", currency.format(avg), Colors.blue),
           _buildInsightChip(colors, Icons.receipt_long_rounded, "Txns", txCount.toString(), Colors.purple),
         ],
@@ -650,24 +735,25 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: accent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.border.withValues(alpha: 0.5)),
+        border: Border.all(color: accent.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Icon(icon, color: accent, size: 16),
           const SizedBox(width: 8),
-          Text("$label: ", style: TextStyle(color: colors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
-          Text(value, style: TextStyle(color: colors.textPrimary, fontSize: 13, fontWeight: FontWeight.w800)),
+          Text("$label: ", style: TextStyle(color: accent.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(value, style: TextStyle(color: accent, fontSize: 13, fontWeight: FontWeight.w800)),
         ],
       ),
     );
   }
 
-  Widget _buildTrendChart(AppColorsExtension colors, CurrencyProvider currency, Map<int, double> trendMap) {
+  Widget _buildTrendChart(AppColorsExtension colors, CurrencyProvider currency, Map<int, double> trendMap, DateTime start, DateTime end) {
     final sortedKeys = trendMap.keys.toList()..sort();
     final maxVal = trendMap.values.isNotEmpty ? trendMap.values.reduce(math.max) : 1000.0;
+    final daysCount = end.difference(start).inDays;
     
     return Container(
       padding: const EdgeInsets.all(24),
@@ -700,7 +786,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: colors.background, borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.analytics_rounded, color: AppColors.primary, size: 20),
+                child: Icon(Icons.analytics_rounded, color: AppColors.primary, size: 20),
               ),
             ],
           ),
@@ -721,9 +807,10 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       tooltipBorder: BorderSide(color: colors.border.withValues(alpha: 0.5)),
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final date = start.add(Duration(days: group.x.toInt()));
                         return BarTooltipItem(
-                          currency.format(rod.toY),
-                          TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w900, fontSize: 13),
+                          "${DateFormat('d MMM').format(date)}\n${currency.format(rod.toY)}",
+                          TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w900, fontSize: 12),
                         );
                       },
                     ),
@@ -738,11 +825,14 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         showTitles: true,
                         reservedSize: 32,
                         getTitlesWidget: (value, meta) {
-                          String label = value.toInt().toString();
-                          if (_period == StatsPeriod.d7) {
-                            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                            label = (value.toInt() >= 1 && value.toInt() <= 7) ? days[value.toInt() - 1] : label;
+                          final date = start.add(Duration(days: value.toInt()));
+                          String label = DateFormat('d').format(date);
+                          
+                          // Show day name if range is small (e.g. 7 days or less)
+                          if (daysCount <= 7) {
+                            label = DateFormat('E').format(date);
                           }
+                          
                           return SideTitleWidget(
                             axisSide: meta.axisSide,
                             space: 8,
@@ -769,7 +859,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       barRods: [
                         BarChartRodData(
                           toY: val,
-                          width: 14,
+                          width: daysCount > 15 ? 8 : 14,
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                           gradient: LinearGradient(
                             begin: Alignment.bottomCenter,
@@ -1316,11 +1406,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: colors.border),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.add_circle_outline_rounded, size: 18, color: AppColors.primary),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     "Add your first transaction",
                     style: TextStyle(
@@ -1480,7 +1570,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
+                        Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

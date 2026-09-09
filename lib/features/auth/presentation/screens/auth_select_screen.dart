@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -64,6 +65,31 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
     _fadeController.dispose();
     _connectivitySubscription.cancel();
     super.dispose();
+  }
+
+  void _showOfflineError() {
+    HapticFeedback.heavyImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Internet connection is required to continue. Please check your internet connection and try again.",
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -186,7 +212,13 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                           _SlideUpAnimation(
                             delay: 400,
                             child: _PremiumButton(
-                              onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
+                              onPressed: authProvider.isLoading ? null : () {
+                                if (_isOffline) {
+                                  _showOfflineError();
+                                } else {
+                                  _handleGoogleSignIn();
+                                }
+                              },
                               isLoading: _isGoogleLoading,
                               backgroundColor: isDark ? Colors.white : colors.surface,
                               foregroundColor: isDark ? Colors.black : colors.textPrimary,
@@ -231,7 +263,13 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                           _SlideUpAnimation(
                             delay: 600,
                             child: _PremiumButton(
-                              onPressed: () => context.push(AppRoutes.login),
+                              onPressed: () {
+                                if (_isOffline) {
+                                  _showOfflineError();
+                                } else {
+                                  context.push(AppRoutes.login);
+                                }
+                              },
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
                               ),
@@ -247,7 +285,13 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                           _SlideUpAnimation(
                             delay: 700,
                             child: _PremiumButton(
-                              onPressed: () => context.push(AppRoutes.register),
+                              onPressed: () {
+                                if (_isOffline) {
+                                  _showOfflineError();
+                                } else {
+                                  context.push(AppRoutes.register);
+                                }
+                              },
                               isOutline: true,
                               borderColor: const Color(0xFF2563EB),
                               foregroundColor: isDark ? Colors.white : const Color(0xFF2563EB),
@@ -261,7 +305,13 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
                           _SlideUpAnimation(
                             delay: 800,
                             child: TextButton(
-                              onPressed: authProvider.isLoading ? null : _handleGuestSignIn,
+                              onPressed: authProvider.isLoading ? null : () {
+                                if (_isOffline) {
+                                  _showOfflineError();
+                                } else {
+                                  _handleGuestSignIn();
+                                }
+                              },
                               style: TextButton.styleFrom(
                                 foregroundColor: colors.textSecondary,
                               ),
@@ -313,6 +363,10 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (_isOffline) {
+      _showOfflineError();
+      return;
+    }
     setState(() => _isGoogleLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.signInWithGoogle();
@@ -330,6 +384,10 @@ class _AuthSelectScreenState extends State<AuthSelectScreen> with TickerProvider
   }
 
   Future<void> _handleGuestSignIn() async {
+    if (_isOffline) {
+      _showOfflineError();
+      return;
+    }
     setState(() => _isGuestLoading = true);
     final authProvider = Provider.of<AppAuthProvider>(context, listen: false);
     final success = await authProvider.continueAsGuest();

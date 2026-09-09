@@ -34,8 +34,20 @@ class NotificationService {
   Future<void> init() async {
     try {
       tz.initializeTimeZones();
-      final timeZoneName = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(timeZoneName.toString()));
+      String timeZoneName;
+      try {
+        timeZoneName = (await FlutterTimezone.getLocalTimezone()).toString();
+      } catch (e) {
+        timeZoneName = 'UTC';
+        if (kDebugMode) debugPrint('[NOTIFICATION] Failed to get local timezone, defaulting to UTC: $e');
+      }
+      
+      try {
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+      } catch (e) {
+        tz.setLocalLocation(tz.getLocation('Asia/Kolkata')); // Fallback to a common one or UTC if preferred
+        if (kDebugMode) debugPrint('[NOTIFICATION] Failed to set local location for $timeZoneName: $e');
+      }
 
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -136,7 +148,7 @@ class NotificationService {
           iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
         ),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
     } catch (e) {
@@ -201,7 +213,7 @@ class NotificationService {
         )
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.wallClockTime,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: payload,
     );

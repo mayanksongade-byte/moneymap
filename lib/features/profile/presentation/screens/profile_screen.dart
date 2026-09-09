@@ -108,7 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
+                        const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -521,7 +521,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 24),
                 Center(child: Text('v$_appVersion', style: TextStyle(color: colors.textDisabled, fontSize: 12))),
-                const SizedBox(height: 100),
+                const SizedBox(height: 10),
               ],
             ),
             if (_isBusy) const Center(child: CircularProgressIndicator()),
