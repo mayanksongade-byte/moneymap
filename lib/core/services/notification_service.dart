@@ -27,7 +27,6 @@ class NotificationService {
   static const String actionViewBudget = 'action_view_budget';
   static const String actionViewStatistics = 'action_view_statistics';
   static const String actionDismiss = 'action_dismiss';
-
   static const String channelId = 'moneymap_smart_v20'; // Incrementing version to ensure fresh channel settings
   static const String channelName = 'MoneyMap Smart Insights';
 
