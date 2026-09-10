@@ -317,8 +317,12 @@ class NotificationProvider extends ChangeNotifier {
   void notifyTransactionAdded(TransactionModel transaction, {required String formattedAmount, required String formattedBalance}) {
     if (!_notificationsEnabled || !_transactionUpdatesEnabled || !_isInitialized) return;
 
-    final title = 'Transaction Added ✅';
-    final body = "Success! You added ${transaction.category} for $formattedAmount. Your new balance is $formattedBalance. 💰";
+    final isIncome = transaction.type.toLowerCase() == 'income';
+    final typeLabel = isIncome ? 'Income' : 'Expense';
+    final emoji = isIncome ? '📈' : '📉';
+    
+    final title = 'Transaction ${transaction.id != null && transaction.createdAt != transaction.updatedAt ? 'Updated' : 'Added'} $emoji';
+    final body = "You logged $formattedAmount for ${transaction.category} ($typeLabel). Your new total balance is $formattedBalance. 💰";
     
     final notificationId = transaction.id != null 
         ? transaction.id.hashCode 
