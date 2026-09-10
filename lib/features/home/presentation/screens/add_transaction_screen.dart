@@ -128,24 +128,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       if (success) {
         // Trigger notification for new/updated transaction
         final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
-        final currencySymbol = Provider.of<CurrencyProvider>(context, listen: false).currencySymbol;
+        final currencyProvider = Provider.of<CurrencyProvider>(context, listen: false);
         
+        // Calculate "Perfect" Balance for Notification
+        double currentBalance = provider.balance;
+        double displayBalance = currentBalance;
+        
+        // If the stream hasn't updated yet, we manually adjust for the notification message
         if (widget.transactionToEdit == null) {
-          notificationProvider.notifyTransactionAdded(
-            transaction,
-            formattedAmount: "$currencySymbol${transaction.amount.toStringAsFixed(0)}",
-            formattedBalance: "$currencySymbol${provider.monthlyBalance.toStringAsFixed(0)}",
-          );
+           displayBalance = _selectedType == 'income' ? currentBalance + amount : currentBalance - amount;
         } else {
-          // You can also add a notifyTransactionUpdated if you want, or just reuse Added for now
-          // but the provider method I added is notifyTransactionAdded. 
-          // I'll update it to be more generic if needed, but for now just call it.
-          notificationProvider.notifyTransactionAdded(
-            transaction,
-            formattedAmount: "$currencySymbol${transaction.amount.toStringAsFixed(0)}",
-            formattedBalance: "$currencySymbol${provider.monthlyBalance.toStringAsFixed(0)}",
-          );
+           // For edit: Balance - oldAmount + newAmount
+           final old = widget.transactionToEdit!;
+           final oldType = old.type.toLowerCase();
+           final oldAmount = old.amount;
+           
+           // Remove old impact
+           double tempBalance = oldType == 'income' ? currentBalance - oldAmount : currentBalance + oldAmount;
+           // Add new impact
+           displayBalance = _selectedType == 'income' ? tempBalance + amount : tempBalance - amount;
         }
+
+        notificationProvider.notifyTransactionAdded(
+          transaction,
+          formattedAmount: currencyProvider.format(transaction.amount),
+          formattedBalance: currencyProvider.format(displayBalance),
+        );
 
         if (widget.transactionToEdit != null) {
           if (mounted) Navigator.pop(context, true);
