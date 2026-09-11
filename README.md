@@ -1,17 +1,70 @@
-# moneymap
+# 💰 MoneyMap
 
-A new Flutter project.
+### Personal Finance & Expense Tracking App
 
-## Getting Started
+MoneyMap is a modern Flutter-based personal finance application designed to help users manage their **income, expenses, budgets, and spending insights** in one place.
 
-This project is a starting point for a Flutter application.
+The project focuses on building a practical fintech-style mobile experience with a clean interface, structured state management, and Firebase-powered data handling.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 📱 App Showcase
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+<p align="center">
+  <img 
+    src="./App_screenshot/ChatGPT Image Aug 17, 2026, 03_56_21 PM.png" 
+    alt="MoneyMap App Showcase" 
+    width="850"
+  />
+</p>
+
+---
+
+## ✨ Features
+
+- 💰 Income & Expense Management
+- 📊 Spending Statistics & Analytics
+- 🎯 Budget Management
+- 🧾 Transaction Tracking
+- 🔐 Firebase Authentication
+- ☁️ Cloud Data Storage with Firestore
+- 📈 Visual Financial Insights
+- 🌙 Light & Dark Theme Support
+- ⚙️ Currency & Notification Settings
+- 📱 Modern Fintech-inspired UI
+
+---
+
+## 🛠️ Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| **Flutter** | Cross-platform app development |
+| **Dart** | Application programming language |
+| **Firebase Authentication** | User authentication |
+| **Cloud Firestore** | Cloud database |
+| **Provider** | State management |
+| **GoRouter** | Navigation |
+| **FL Chart** | Financial charts & analytics |
+| **SharedPreferences** | Local preferences & settings |
+
+---
+
+## 🏗️ Project Structure
+
+```text
+moneymap/
+│
+├── android/
+├── assets/
+├── ios/
+├── lib/
+├── linux/
+├── macos/
+├── test/
+├── web/
+│
+├── firestore.rules
+├── pubspec.yaml
+├── pubspec.lock
+└── README.md
