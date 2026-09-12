@@ -49,6 +49,11 @@ The project focuses on building a practical fintech-style mobile experience with
 | **SharedPreferences** | Local preferences & settings |
 
 ---
+## 📲 Download APK
+
+Try the latest Android release:
+
+[Download MoneyMap APK](https://github.com/mayanksongade-byte/moneymap/releases/tag/v1.0.0)
 ## 🚀 Getting Started
 
 ### Prerequisites
