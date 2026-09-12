@@ -12,7 +12,7 @@ The project focuses on building a practical fintech-style mobile experience with
 
 <p align="center">
   <img 
-    src=".Linkdin_post.png" 
+    src="App_screenshot/Linkdin_post.png" 
     alt="MoneyMap App Showcase" 
     width="850"
   />
