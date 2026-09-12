@@ -49,6 +49,19 @@ The project focuses on building a practical fintech-style mobile experience with
 | **SharedPreferences** | Local preferences & settings |
 
 ---
+## 🚀 Getting Started
+
+### Prerequisites
+
+Make sure you have Flutter installed and configured on your system.
+
+### Run the Project
+
+```bash
+git clone https://github.com/mayanksongade-byte/moneymap.git
+cd moneymap
+flutter pub get
+flutter run
 
 ## 🏗️ Project Structure
 
