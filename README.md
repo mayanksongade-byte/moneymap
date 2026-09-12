@@ -12,7 +12,7 @@ The project focuses on building a practical fintech-style mobile experience with
 
 <p align="center">
   <img 
-    src="./App_screenshot/ChatGPT Image Aug 17, 2026, 03_56_21 PM.png" 
+    src=".Linkdin_post.png" 
     alt="MoneyMap App Showcase" 
     width="850"
   />
